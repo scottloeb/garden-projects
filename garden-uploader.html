@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G.A.R.D.E.N. Project Uploader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4a6fa5 0%, #166534 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 2rem;
+        }
+
+        .upload-section {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .drop-zone {
+            border: 3px dashed #4a6fa5;
+            border-radius: 12px;
+            padding: 3rem 2rem;
+            margin: 2rem 0;
+            background: #f8faff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.dragover {
+            border-color: #166534;
+            background: #f0f9ff;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(74, 111, 165, 0.15);
+        }
+
+        .drop-zone.dragover {
+            border-color: #22c55e;
+            background: #f0fdf4;
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            color: #4a6fa5;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #374151;
+        }
+
+        .upload-subtext {
+            color: #6b7280;
+            margin-bottom: 2rem;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-button {
+            background: #4a6fa5;
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 0 0.5rem;
+        }
+
+        .upload-button:hover {
+            background: #3d5a8c;
+            transform: translateY(-1px);
+        }
+
+        .upload-button.secondary {
+            background: #6b7280;
+        }
+
+        .upload-button.secondary:hover {
+            background: #4b5563;
+        }
+
+        .project-form {
+            display: none;
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #4a6fa5;
+            box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.1);
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: white;
+            cursor: pointer;
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .progress-section {
+            display: none;
+            margin: 2rem 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4a6fa5 0%, #22c55e 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .file-list {
+            margin: 2rem 0;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+        }
+
+        .file-icon {
+            margin-right: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .file-name {
+            font-weight: 600;
+        }
+
+        .file-size {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .remove-button {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .remove-button:hover {
+            background: #dc2626;
+        }
+
+        .success-message {
+            background: #f0fdf4;
+            border: 1px solid #22c55e;
+            color: #15803d;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #ef4444;
+            color: #dc2626;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .project-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .project-card:hover {
+            border-color: #4a6fa5;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(74, 111, 165, 0.1);
+        }
+
+        .project-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: #374151;
+        }
+
+        .project-type {
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .project-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .action-button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .action-button.deploy {
+            background: #22c55e;
+            color: white;
+        }
+
+        .action-button.deploy:hover {
+            background: #16a34a;
+        }
+
+        .action-button.edit {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .action-button.edit:hover {
+            background: #e5e7eb;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e5e7eb;
+            margin-bottom: 2rem;
+        }
+
+        .tab {
+            padding: 1rem 2rem;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            cursor: pointer;
+            color: #6b7280;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .tab.active {
+            color: #4a6fa5;
+            border-bottom-color: #4a6fa5;
+            font-weight: 600;
+        }
+
+        .tab:hover {
+            color: #374151;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-pending {
+            background: #f59e0b;
+        }
+
+        .status-deployed {
+            background: #22c55e;
+        }
+
+        .status-error {
+            background: #ef4444;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .main-content {
+                padding: 1rem;
+            }
+
+            .drop-zone {
+                padding: 2rem 1rem;
+            }
+
+            .tabs {
+                flex-direction: column;
+            }
+
+            .tab {
+                text-align: left;
+            }
+        }
+
+        .floating-help {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #4a6fa5;
+            color: white;
+            border: none;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(74, 111, 165, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .floating-help:hover {
+            transform: scale(1.1);
+            background: #3d5a8c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌱 G.A.R.D.E.N.</h1>
+            <p>Graph Algorithms, Research, Development, Enhancement, and Novelties</p>
+            <p style="font-size: 0.9rem; margin-top: 0.5rem; opacity: 0.8;">Project Management & Deployment System</p>
+        </div>
+
+        <div class="main-content">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('upload')">📤 Upload Project</button>
+                <button class="tab" onclick="switchTab('projects')">📋 Manage Projects</button>
+                <button class="tab" onclick="switchTab('deploy')">🚀 Deploy</button>
+                <button class="tab" onclick="switchTab('settings')">⚙️ Settings</button>
+            </div>
+
+            <!-- Upload Tab -->
+            <div id="upload-tab" class="tab-content active">
+                <div class="upload-section">
+                    <h2 style="margin-bottom: 1rem; color: #374151;">Upload New Project</h2>
+                    
+                    <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
+                        <div class="upload-icon">📁</div>
+                        <div class="upload-text">Drag & drop your project files here</div>
+                        <div class="upload-subtext">or click to browse files</div>
+                        <button class="upload-button">Choose Files</button>
+                        <button class="upload-button secondary" onclick="event.stopPropagation(); showProjectForm()">Create New Project</button>
+                    </div>
+
+                    <input type="file" id="fileInput" class="file-input" multiple>
+
+                    <div class="file-list" id="fileList"></div>
+
+                    <div class="project-form" id="projectForm">
+                        <h3 style="margin-bottom: 1rem;">Project Details</h3>
+                        <div class="form-group">
+                            <label class="form-label">Project Name</label>
+                            <input type="text" class="form-input" id="projectName" placeholder="my-awesome-project">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Project Type</label>
+                            <select class="form-select" id="projectType">
+                                <option value="react">React Component</option>
+                                <option value="html">Single HTML Page (Dan's Pattern)</option>
+                                <option value="express">Node.js Express App</option>
+                                <option value="static">Static Website</option>
+                                <option value="empty">Empty Project</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-input form-textarea" id="projectDescription" placeholder="Brief description of your project..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <button class="upload-button" onclick="createProject()">Create Project</button>
+                            <button class="upload-button secondary" onclick="hideProjectForm()">Cancel</button>
+                        </div>
+                    </div>
+
+                    <div class="progress-section" id="progressSection">
+                        <div class="progress-text" id="progressText">Uploading files...</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                    </div>
+
+                    <div class="success-message" id="successMessage">
+                        ✅ Project uploaded successfully!
+                    </div>
+
+                    <div class="error-message" id="errorMessage">
+                        ❌ Upload failed. Please try again.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Projects Tab -->
+            <div id="projects-tab" class="tab-content">
+                <h2 style="margin-bottom: 2rem; color: #374151;">Project Management</h2>
+                
+                <div class="projects-grid" id="projectsGrid">
+                    <!-- Projects will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Deploy Tab -->
+            <div id="deploy-tab" class="tab-content">
+                <h2 style="margin-bottom: 2rem; color: #374151;">Deployment Management</h2>
+                
+                <div style="text-align: center; padding: 3rem; color: #6b7280;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🚀</div>
+                    <h3>Deploy to Vercel</h3>
+                    <p style="margin: 1rem 0;">Select a project from the Projects tab and click Deploy</p>
+                    <p style="font-size: 0.9rem;">Phase 2 will include automated deployment workflows</p>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings-tab" class="tab-content">
+                <h2 style="margin-bottom: 2rem; color: #374151;">System Settings</h2>
+                
+                <div class="form-group">
+                    <label class="form-label">Default Project Directory</label>
+                    <input type="text" class="form-input" id="projectDirectory" value="./pending-updates" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Auto-deploy on Upload</label>
+                    <select class="form-select" id="autoDeployment">
+                        <option value="false">Disabled</option>
+                        <option value="true">Enabled (Phase 2)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">File Size Limit</label>
+                    <select class="form-select" id="fileSizeLimit">
+                        <option value="10">10 MB</option>
+                        <option value="50">50 MB</option>
+                        <option value="100">100 MB</option>
+                    </select>
+                </div>
+
+                <div style="background: #f0f9ff; border: 1px solid #4a6fa5; border-radius: 8px; padding: 1rem; margin: 2rem 0;">
+                    <h4 style="color: #4a6fa5; margin-bottom: 0.5rem;">🌱 G.A.R.D.E.N. Philosophy</h4>
+                    <p style="font-size: 0.9rem; color: #374151; line-height: 1.6;">
+                        This uploader follows the G.A.R.D.E.N. principles of accessible development:
+                        <strong>Cognitive Alignment</strong> (intuitive interface), 
+                        <strong>Technical Abstraction</strong> (complexity hidden), 
+                        <strong>Rapid Development</strong> (automated workflows), and
+                        <strong>Progressive Discovery</strong> (start simple, scale up).
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="floating-help" onclick="showHelp()" title="Help">?</button>
+
+    <script>
+        // Sample project data
+        let projects = [
+            {
+                id: 'budget-nodepad',
+                name: 'Budget NodePad',
+                type: 'Single HTML Page',
+                status: 'deployed',
+                description: 'Interactive budget visualization following Dan\'s pattern'
+            },
+            {
+                id: 'test-project',
+                name: 'Test Project',
+                type: 'React Component',
+                status: 'pending',
+                description: 'Sample React component for testing'
+            }
+        ];
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // Add active class to selected tab
+            event.target.classList.add('active');
+            
+            // Load projects if switching to projects tab
+            if (tabName === 'projects') {
+                loadProjects();
+            }
+        }
+
+        // Drag and drop functionality
+        const dropZone = document.querySelector('.drop-zone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        let selectedFiles = [];
+
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Highlight drop zone when item is dragged over it
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropZone.classList.add('dragover');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('dragover');
+        }
+
+        // Handle dropped files
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        // Handle file input change
+        fileInput.addEventListener('change', function(e) {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            selectedFiles = Array.from(files);
+            displayFiles();
+        }
+
+        function displayFiles() {
+            fileList.innerHTML = '';
+            
+            selectedFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                
+                const fileIcon = getFileIcon(file.name);
+                const fileSize = formatFileSize(file.size);
+                
+                fileItem.innerHTML = `
+                    <div class="file-info">
+                        <div class="file-icon">${fileIcon}</div>
+                        <div>
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-size">${fileSize}</div>
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <button class="remove-button" onclick="removeFile(${index})">Remove</button>
+                    </div>
+                `;
+                
+                fileList.appendChild(fileItem);
+            });
+
+            if (selectedFiles.length > 0) {
+                const uploadButton = document.createElement('button');
+                uploadButton.className = 'upload-button';
+                uploadButton.textContent = `Upload ${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''}`;
+                uploadButton.onclick = uploadFiles;
+                fileList.appendChild(uploadButton);
+            }
+        }
+
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const iconMap = {
+                'js': '📄', 'jsx': '⚛️', 'ts': '📘', 'tsx': '⚛️',
+                'html': '🌐', 'css': '🎨', 'scss': '🎨',
+                'json': '📋', 'md': '📝', 'txt': '📄',
+                'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️', 'gif': '🖼️',
+                'pdf': '📕', 'zip': '📦'
+            };
+            return iconMap[ext] || '📄';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            displayFiles();
+        }
+
+        function uploadFiles() {
+            if (selectedFiles.length === 0) return;
+            
+            const progressSection = document.getElementById('progressSection');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            
+            progressSection.style.display = 'block';
+            
+            // Simulate upload progress
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    
+                    setTimeout(() => {
+                        progressSection.style.display = 'none';
+                        showSuccessMessage('Files uploaded successfully!');
+                        selectedFiles = [];
+                        fileList.innerHTML = '';
+                    }, 500);
+                }
+                
+                progressFill.style.width = progress + '%';
+                progressText.textContent = `Uploading... ${Math.round(progress)}%`;
+            }, 200);
+        }
+
+        function showProjectForm() {
+            document.getElementById('projectForm').style.display = 'block';
+        }
+
+        function hideProjectForm() {
+            document.getElementById('projectForm').style.display = 'none';
+        }
+
+        function createProject() {
+            const name = document.getElementById('projectName').value;
+            const type = document.getElementById('projectType').value;
+            const description = document.getElementById('projectDescription').value;
+            
+            if (!name) {
+                showErrorMessage('Project name is required');
+                return;
+            }
+            
+            // Simulate project creation
+            const newProject = {
+                id: name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+                name: name,
+                type: type,
+                status: 'pending',
+                description: description
+            };
+            
+            projects.push(newProject);
+            
+            showSuccessMessage(`Project "${name}" created successfully!`);
+            hideProjectForm();
+            
+            // Clear form
+            document.getElementById('projectName').value = '';
+            document.getElementById('projectDescription').value = '';
+        }
+
+        function loadProjects() {
+            const projectsGrid = document.getElementById('projectsGrid');
+            projectsGrid.innerHTML = '';
+            
+            projects.forEach(project => {
+                const projectCard = document.createElement('div');
+                projectCard.className = 'project-card';
+                
+                const statusClass = `status-${project.status}`;
+                const statusText = project.status.charAt(0).toUpperCase() + project.status.slice(1);
+                
+                projectCard.innerHTML = `
+                    <div class="project-name">
+                        <span class="status-indicator ${statusClass}"></span>
+                        ${project.name}
+                    </div>
+                    <div class="project-type">${project.type} • ${statusText}</div>
+                    <p style="color: #6b7280; margin-bottom: 1rem; font-size: 0.9rem;">${project.description}</p>
+                    <div class="project-actions">
+                        ${project.status === 'pending' ? 
+                            '<button class="action-button deploy" onclick="deployProject(\'' + project.id + '\')">Deploy</button>' : 
+                            '<button class="action-button edit" onclick="viewDeployment(\'' + project.id + '\')">View</button>'
+                        }
+                        <button class="action-button edit" onclick="editProject('${project.id}')">Edit</button>
+                    </div>
+                `;
+                
+                projectsGrid.appendChild(projectCard);
+            });
+            
+            if (projects.length === 0) {
+                projectsGrid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: #6b7280;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">📋</div>
+                        <h3>No Projects Yet</h3>
+                        <p style="margin: 1rem 0;">Upload your first project to get started!</p>
+                        <button class="upload-button" onclick="switchTab('upload')">Upload Project</button>
+                    </div>
+                `;
+            }
+        }
+
+        function deployProject(projectId) {
+            const project = projects.find(p => p.id === projectId);
+            if (!project) return;
+            
+            // Simulate deployment process
+            const confirmDeploy = confirm(`Deploy "${project.name}" to production?`);
+            if (!confirmDeploy) return;
+            
+            showSuccessMessage(`Deploying "${project.name}"... This will be implemented in Phase 2.`);
+            
+            // Update project status
+            project.status = 'deployed';
+            loadProjects();
+        }
+
+        function editProject(projectId) {
+            const project = projects.find(p => p.id === projectId);
+            if (!project) return;
+            
+            alert(`Edit functionality for "${project.name}" will be implemented in Phase 2.\n\nFor now, you can:\n1. Use the CLI deploy manager\n2. Edit files directly in pending-updates/`);
+        }
+
+        function viewDeployment(projectId) {
+            const project = projects.find(p => p.id === projectId);
+            if (!project) return;
+            
+            alert(`"${project.name}" is deployed!\n\nView URL: https://${project.id}.vercel.app\n(This will be a real link in Phase 2)`);
+        }
+
+        function showSuccessMessage(message) {
+            const successMsg = document.getElementById('successMessage');
+            successMsg.textContent = message;
+            successMsg.style.display = 'block';
+            
+            setTimeout(() => {
+                successMsg.style.display = 'none';
+            }, 3000);
+        }
+
+        function showErrorMessage(message) {
+            const errorMsg = document.getElementById('errorMessage');
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+            
+            setTimeout(() => {
+                errorMsg.style.display = 'none';
+            }, 3000);
+        }
+
+        function showHelp() {
+            const helpText = `
+🌱 G.A.R.D.E.N. Web Uploader Help
+
+UPLOAD TAB:
+• Drag & drop files into the upload zone
+• Or click "Choose Files" to browse
+• Click "Create New Project" for templates
+• Selected files appear in the list below
+
+PROJECTS TAB:
+• View all pending and deployed projects
+• Click "Deploy" to deploy pending projects
+• Click "Edit" to modify project settings
+• Status indicators show project state
+
+DEPLOY TAB:
+• Deployment management (Phase 2)
+• Will include automated Vercel deployment
+• Integration with Git workflows
+
+SETTINGS TAB:
+• Configure upload preferences
+• Set file size limits
+• Auto-deployment options (Phase 2)
+
+KEYBOARD SHORTCUTS:
+• Alt+U: Switch to Upload tab
+• Alt+P: Switch to Projects tab
+• Alt+D: Switch to Deploy tab
+• Alt+S: Switch to Settings tab
+
+PHASE 1 STATUS:
+✅ File upload interface
+✅ Project creation forms
+✅ Basic project management
+🔄 Integration with CLI deploy manager (next)
+🔄 Automated deployment (Phase 2)
+            `;
+            
+            alert(helpText);
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.altKey) {
+                switch(e.key) {
+                    case 'u':
+                        e.preventDefault();
+                        switchTab('upload');
+                        break;
+                    case 'p':
+                        e.preventDefault();
+                        switchTab('projects');
+                        break;
+                    case 'd':
+                        e.preventDefault();
+                        switchTab('deploy');
+                        break;
+                    case 's':
+                        e.preventDefault();
+                        switchTab('settings');
+                        break;
+                }
+            }
+        });
+
+        // Auto-load projects on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🌱 G.A.R.D.E.N. Web Uploader initialized');
+            
+            // Show welcome message
+            setTimeout(() => {
+                if (projects.length === 0) {
+                    showSuccessMessage('Welcome to G.A.R.D.E.N.! Upload your first project to get started.');
+                }
+            }, 1000);
+        });
+
+        // Responsive tab handling for mobile
+        function initMobileTabs() {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function(e) {
+                    const tabName = this.textContent.split(' ')[1].toLowerCase();
+                    switchTab(tabName);
+                });
+            });
+        }
+
+        // File validation
+        function validateFile(file) {
+            const maxSize = 50 * 1024 * 1024; // 50MB
+            const allowedTypes = [
+                'text/', 'application/json', 'application/javascript',
+                'image/', 'application/zip', 'application/x-zip-compressed'
+            ];
+            
+            if (file.size > maxSize) {
+                showErrorMessage(`File "${file.name}" is too large. Maximum size is 50MB.`);
+                return false;
+            }
+            
+            const isAllowed = allowedTypes.some(type => file.type.startsWith(type)) || 
+                             file.name.endsWith('.md') || file.name.endsWith('.txt') ||
+                             file.name.endsWith('.jsx') || file.name.endsWith('.tsx');
+            
+            if (!isAllowed) {
+                showErrorMessage(`File type not supported: "${file.name}"`);
+                return false;
+            }
+            
+            return true;
+        }
+
+        // Enhanced file handling with validation
+        function handleFiles(files) {
+            const validFiles = Array.from(files).filter(validateFile);
+            selectedFiles = selectedFiles.concat(validFiles);
+            displayFiles();
+        }
+
+        // Initialize mobile responsiveness
+        if (window.innerWidth <= 768) {
+            initMobileTabs();
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            if (window.innerWidth <= 768) {
+                initMobileTabs();
+            }
+        });
+
+        // Simulate real-time project updates (for demo purposes)
+        setInterval(() => {
+            // In a real implementation, this would poll the server for updates
+            // For now, it's just a placeholder for future WebSocket integration
+        }, 5000);
+
+        // Export function for CLI integration (Phase 2)
+        window.GARDENUploader = {
+            addProject: function(projectData) {
+                projects.push(projectData);
+                if (document.getElementById('projects-tab').classList.contains('active')) {
+                    loadProjects();
+                }
+            },
+            
+            updateProjectStatus: function(projectId, status) {
+                const project = projects.find(p => p.id === projectId);
+                if (project) {
+                    project.status = status;
+                    loadProjects();
+                }
+            },
+            
+            getProjects: function() {
+                return projects;
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zach's Weekend NodePad</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            height: calc(100vh - 40px);
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .main-canvas {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.8em;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+
+        .category-section {
+            margin-bottom: 25px;
+        }
+
+        .category-header {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #2c3e50;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .category-header:hover {
+            background: #e9ecef;
+        }
+
+        .activity-item {
+            background: #fff;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: grab;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .activity-item:hover {
+            border-color: #3498db;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .activity-item.dragging {
+            opacity: 0.7;
+            transform: rotate(5deg);
+            cursor: grabbing;
+        }
+
+        .activity-name {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 0.95em;
+        }
+
+        .activity-details {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .activity-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 8px;
+        }
+
+        .tag {
+            background: #ecf0f1;
+            color: #2c3e50;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7em;
+        }
+
+        .tag.screen { background: #fee2e2; color: #dc2626; }
+        .tag.quiet { background: #d1fae5; color: #059669; }
+        .tag.short { background: #dbeafe; color: #2563eb; }
+        .tag.collab { background: #fef3c7; color: #d97706; }
+        .tag.nintendo { background: #fde68a; color: #f59e0b; }
+
+        .canvas-area {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: 
+                radial-gradient(circle at 25% 25%, #f0f9ff 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, #f0fdf4 0%, transparent 50%),
+                linear-gradient(45deg, #fafafa 25%, transparent 25%),
+                linear-gradient(-45deg, #fafafa 25%, transparent 25%);
+            background-size: 40px 40px, 40px 40px, 20px 20px, 20px 20px;
+            border-radius: 10px;
+        }
+
+        .day-column {
+            position: absolute;
+            width: 300px;
+            min-height: 400px;
+            background: rgba(255,255,255,0.9);
+            border: 2px dashed #cbd5e0;
+            border-radius: 12px;
+            padding: 15px;
+            backdrop-filter: blur(5px);
+        }
+
+        .day-column.saturday {
+            top: 20px;
+            left: 20px;
+        }
+
+        .day-column.sunday {
+            top: 20px;
+            right: 20px;
+        }
+
+        .day-header {
+            text-align: center;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            border-radius: 8px;
+        }
+
+        .time-slot {
+            min-height: 80px;
+            border: 1px dashed #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            padding: 10px;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .time-slot.drop-zone {
+            border-color: #3498db;
+            background: #f0f9ff;
+        }
+
+        .time-label {
+            font-size: 0.8em;
+            color: #64748b;
+            font-weight: bold;
+        }
+
+        .dropped-activity {
+            background: #ffffff;
+            border: 2px solid #10b981;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 5px;
+            position: relative;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .priority-filter {
+            background: #e3f2fd;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .priority-filter h3 {
+            color: #1976d2;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+
+        .priority-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .priority-btn {
+            background: #fff;
+            border: 2px solid #e3f2fd;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .priority-btn.active {
+            background: #1976d2;
+            color: white;
+            border-color: #1976d2;
+        }
+
+        .priority-btn:hover {
+            border-color: #1976d2;
+        }
+
+        .tag.priority {
+            font-weight: bold;
+        }
+
+        .tag.priority.must {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .tag.priority.want {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+
+        .tag.priority.idea {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .activity-item.hidden {
+            display: none;
+        }
+
+        .generate-schedule {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 15px;
+            font-size: 1em;
+        }
+
+        .generate-schedule:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .quick-add-section {
+            background: #f0f9ff;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .quick-add-section h3 {
+            color: #0369a1;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+
+        .voice-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .voice-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+
+        .voice-btn.listening {
+            background: #22c55e;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .voice-status {
+            font-size: 0.8em;
+            color: #64748b;
+        }
+
+        #quickIdea {
+            width: 100%;
+            min-height: 60px;
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            resize: vertical;
+        }
+
+        .quick-priority {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 0.8em;
+        }
+
+        .quick-priority select {
+            padding: 4px 8px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            font-size: 0.8em;
+        }
+
+        .add-idea-btn {
+            background: #059669;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+            width: 100%;
+        }
+
+        .add-idea-btn:hover {
+            background: #047857;
+        }
+
+        .reflection-section {
+            background: #fef3c7;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .reflection-section h3 {
+            color: #92400e;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+
+        .reflection-btn {
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+            width: 100%;
+        }
+
+        .reflection-btn:hover {
+            background: #d97706;
+        }
+
+        .past-activities {
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .past-activity {
+            background: white;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .activity-rating {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+        }
+
+        .rating-star {
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: color 0.2s;
+        }
+
+        .rating-star.active {
+            color: #fbbf24;
+        }
+
+        .rating-star.inactive {
+            color: #d1d5db;
+        }
+
+        .future-ideas {
+            background: #f3e8ff;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .future-ideas h3 {
+            color: #7c3aed;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+
+        .future-idea {
+            background: white;
+            border-radius: 6px;
+            padding: 8px;
+            margin-bottom: 6px;
+            border-left: 4px solid #a855f7;
+            font-size: 0.8em;
+        }
+
+        .zach-needs {
+            background: #fff3cd;
+            border: 1px solid #ffd43b;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .zach-needs h3 {
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+
+        .needs-list {
+            list-style: none;
+            font-size: 0.8em;
+            color: #856404;
+        }
+
+        .needs-list li {
+            margin-bottom: 5px;
+            padding-left: 15px;
+            position: relative;
+        }
+
+        .needs-list li::before {
+            content: "🧠";
+            position: absolute;
+            left: 0;
+        }
+
+        .generate-schedule {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 15px;
+            font-size: 1em;
+        }
+
+        .generate-schedule:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+        }
+
+        .btn.clear {
+            background: #e74c3c;
+        }
+
+        .btn.clear:hover {
+            background: #c0392b;
+        }
+
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+            
+            .day-column {
+                position: relative;
+                width: 100%;
+                margin-bottom: 20px;
+            }
+            
+            .day-column.saturday {
+                top: 0;
+                left: 0;
+            }
+            
+            .day-column.sunday {
+                top: 0;
+                right: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>🎮 Zach's Activities</h1>
+            <p class="subtitle">Drag activities to plan your weekend</p>
+            
+            <div class="zach-needs">
+                <h3>🧠 PDA-Specific Planning for Zach:</h3>
+                <ul class="needs-list">
+                    <li>Frame as discoveries, not demands ("I found something cool...")</li>
+                    <li>All choices must be genuinely acceptable outcomes</li>
+                    <li>Check for unexpected events/crowds first</li>
+                    <li>Build escape routes into every plan</li>
+                    <li>Avoid time warnings during screen time</li>
+                    <li>Keep activities 1-2 hours max</li>
+                    <li>Have Nintendo connections ready for engagement</li>
+                </ul>
+            </div>
+
+            <button class="generate-schedule" onclick="generateVisualSchedule()">
+                🎨 Generate Visual Schedule for Zach
+            </button>
+
+            <!-- Quick Add Section -->
+            <div class="quick-add-section">
+                <h3>💭 Quick Add Ideas</h3>
+                <div class="voice-input">
+                    <button class="voice-btn" onclick="startVoiceInput()">🎤 Voice Add</button>
+                    <span class="voice-status" id="voiceStatus"></span>
+                </div>
+                <textarea id="quickIdea" placeholder="Type or dictate a new activity idea..."></textarea>
+                <div class="quick-priority">
+                    <label>Priority:</label>
+                    <select id="quickPriority">
+                        <option value="idea">Ideas/Maybe</option>
+                        <option value="want">Want To Do</option>
+                        <option value="must">Must Do</option>
+                    </select>
+                    <select id="quickWeekend">
+                        <option value="this">This Weekend</option>
+                        <option value="next">Next Weekend</option>
+                        <option value="future">Future Ideas</option>
+                    </select>
+                </div>
+                <button class="add-idea-btn" onclick="addQuickIdea()">➕ Add Activity</button>
+            </div>
+
+            <!-- Weekend Reflection -->
+            <div class="reflection-section">
+                <h3>📝 Weekend Reflection</h3>
+                <button class="reflection-btn" onclick="openReflection()">✨ How did activities go?</button>
+                <div class="past-activities" id="pastActivities"></div>
+            </div>
+
+            <!-- Priority Level Filter -->
+            <div class="priority-filter">
+                <h3>📝 Activity Priorities</h3>
+                <div class="priority-buttons">
+                    <button class="priority-btn active" data-priority="all">All Activities</button>
+                    <button class="priority-btn" data-priority="must">Must Do</button>
+                    <button class="priority-btn" data-priority="want">Want To Do</button>
+                    <button class="priority-btn" data-priority="idea">Ideas/Maybe</button>
+                </div>
+            </div>
+
+            <div class="category-section">
+                <div class="category-header" onclick="toggleCategory('nintendo')">
+                    🎮 Nintendo & Screen Combos
+                </div>
+                <div id="nintendo" class="category-content">
+                    <div class="activity-item" draggable="true" data-priority="want">
+                        <div class="activity-name">GameOn Arcade Annapolis</div>
+                        <div class="activity-details">114 West Street - Classic games 25¢-$1</div>
+                        <div class="activity-tags">
+                            <span class="tag nintendo">Nintendo</span>
+                            <span class="tag short">2 hours</span>
+                            <span class="tag priority want">Want To Do</span>
+                        </div>
+                    </div>
+                    <div class="activity-item" draggable="true" data-priority="idea">
+                        <div class="activity-name">Mario Scavenger Hunt</div>
+                        <div class="activity-details">iPad clues + power-up snacks</div>
+                        <div class="activity-tags">
+                            <span class="tag nintendo">Mario</span>
+                            <span class="tag collab">Together</span>
+                            <span class="tag priority idea">Ideas/Maybe</span>
+                        </div>
+                    </div>
+                    <div class="activity-item" draggable="true" data-priority="want">
+                        <div class="activity-name">Mario Kart Scooter Course</div>
+                        <div class="activity-details">Time laps with iPad timer + Mario music</div>
+                        <div class="activity-tags">
+                            <span class="tag nintendo">Mario</span>
+                            <span class="tag screen">iPad</span>
+                            <span class="tag priority want">Want To Do</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="category-section">
+                <div class="category-header" onclick="toggleCategory('outdoor-screen')">
+                    🌳 Outdoor + Screen Time
+                </div>
+                <div id="outdoor-screen" class="category-content">
+                    <div class="activity-item" draggable="true" data-priority="must">
+                        <div class="activity-name">Sailing with iPad</div>
+                        <div class="activity-details">Perfect combo - adventure + comfort</div>
+                        <div class="activity-tags">
+                            <span class="tag screen">iPad OK</span>
+                            <span class="tag collab">Together</span>
+                            <span class="tag priority must">Must Do</span>
+                        </div>
+                    </div>
+                    <div class="activity-item" draggable="true" data-priority="want">
+                        <div class="activity-name">Nature Photography Walk</div>
+                        <div class="activity-details">iPad camera at Quiet Waters/Greenbury Point</div>
+                        <div class="activity-tags">
+                            <span class="tag screen">iPad Camera</span>
+                            <span class="tag quiet">Peaceful</span>
+                            <span class="tag priority want">Want To Do</span>
+                        </div>
+                    </div>
+                    <div class="activity-item" draggable="true" data-priority="idea">
+                        <div class="activity-name">Geocaching Adventure</div>
+                        <div class="activity-details">GPS treasure hunting with iPad</div>
+                        <div class="activity-tags">
+                            <span class="tag screen">Tech-based</span>
+                            <span class="tag collab">Teamwork</span>
+                            <span class="tag priority idea">Ideas/Maybe</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="category-section">
+                <div class="category-header" onclick="toggleCategory('quiet-outdoor')">
+                    🚴 Quiet Outdoor Activities
+                </div>
+                <div id="quiet-outdoor" class="category-content">
+                    <div class="activity-item" draggable="true">
+                        <div class="activity-name">Scooter at Quiet Waters Park</div>
+                        <div class="activity-details">5.1 mi paved loop - much safer than Arlington!</div>
+                        <div class="activity-tags">
+                            <span class="tag quiet">Car-free</span>
+                            <span class="tag short">Flexible</span>
+                        </div>
+                    </div>
+                    <div class="activity-item" draggable="true">
+                        <div class="activity-name">Greenbury Point Trail</div>
+                        <div class="activity-details">3.1 mi nature walk - check for events first!</div>
+                        <div class="activity-tags">
+                            <span class="tag quiet">Peaceful</span>
+                            <span class="tag short">3 miles</span>
+                        </div>
+                    </div>
+                    <div class="activity-item" draggable="true">
+                        <div class="activity-name">Terrapin Nature Park</div>
+                        <div class="activity-details">Kent Island waterfront - birds & quiet paths</div>
+                        <div class="activity-tags">
+                            <span class="tag quiet">Low traffic</span>
+                            <span class="tag screen">Rest spots</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="category-section">
+                <div class="category-header" onclick="toggleCategory('hands-on')">
+                    🏛️ Hands-On Indoor
+                </div>
+                <div id="hands-on" class="category-content">
+                    <div class="activity-item" draggable="true">
+                        <div class="activity-name">Maritime Museum</div>
+                        <div class="activity-details">Eastport - interactive exhibits, 1 hour perfect</div>
+                        <div class="activity-tags">
+                            <span class="tag short">1 hour</span>
+                            <span class="tag collab">Interactive</span>
+                        </div>
+                    </div>
+                    <div class="activity-item" draggable="true">
+                        <div class="activity-name">Chesapeake Children's Museum</div>
+                        <div class="activity-details">Hands-on discovery about Bay area</div>
+                        <div class="activity-tags">
+                            <span class="tag collab">Hands-on</span>
+                            <span class="tag short">Self-paced</span>
+                        </div>
+                    </div>
+                    <div class="activity-item" draggable="true">
+                        <div class="activity-name">Pottery Making</div>
+                        <div class="activity-details">South River Colony - create together</div>
+                        <div class="activity-tags">
+                            <span class="tag collab">Create</span>
+                            <span class="tag quiet">Calm</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="category-section">
+                <div class="category-header" onclick="toggleCategory('backup')">
+                    🏠 Backup Plans
+                </div>
+                <div id="backup" class="category-content">
+                    <div class="activity-item" draggable="true">
+                        <div class="activity-name">Epic Fort Building</div>
+                        <div class="activity-details">Furniture + sheets + iPad viewing area</div>
+                        <div class="activity-tags">
+                            <span class="tag collab">Building</span>
+                            <span class="tag screen">iPad area</span>
+                        </div>
+                    </div>
+                    <div class="activity-item" draggable="true">
+                        <div class="activity-name">Library Visit</div>
+                        <div class="activity-details">Broadneck/Annapolis - quiet + computers</div>
+                        <div class="activity-tags">
+                            <span class="tag quiet">Low stimulation</span>
+                            <span class="tag screen">Tech access</span>
+                        </div>
+                    </div>
+                    <div class="activity-item" draggable="true">
+                        <div class="activity-name">Ice Cream + iPad Time</div>
+                        <div class="activity-details">Annapolis Ice Cream Co. + quiet spot</div>
+                        <div class="activity-tags">
+                            <span class="tag short">Quick</span>
+                            <span class="tag screen">Relaxing</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-canvas">
+            <div class="controls">
+                <button class="btn" onclick="saveWeekend()">💾 Save Plan</button>
+                <button class="btn clear" onclick="clearAll()">🗑️ Clear All</button>
+                <button class="btn" onclick="showTips()">💡 Tips</button>
+                <button class="btn" onclick="priorityMode()">📝 Priority View</button>
+                <button class="btn" onclick="showFutureIdeas()">🔮 Future Ideas</button>
+            </div>
+
+            <div class="canvas-area" id="canvas">
+                <!-- Future Ideas Overlay -->
+                <div class="future-ideas" id="futureIdeas" style="display: none; position: absolute; top: 80px; left: 20px; right: 20px; z-index: 50;">
+                    <h3>🔮 Future Weekend Ideas</h3>
+                    <div id="futureIdeasList"></div>
+                    <button class="btn" onclick="hideFutureIdeas()" style="margin-top: 10px;">Close</button>
+                </div>
+                <div class="day-column saturday">
+                    <div class="day-header">🌅 Saturday Adventures</div>
+                    <div class="time-slot" data-time="morning">
+                        <div class="time-label">Morning (9am-12pm)</div>
+                    </div>
+                    <div class="time-slot" data-time="afternoon">
+                        <div class="time-label">Afternoon (1pm-4pm)</div>
+                    </div>
+                    <div class="time-slot" data-time="evening">
+                        <div class="time-label">Evening (5pm-7pm)</div>
+                    </div>
+                </div>
+
+                <div class="day-column sunday">
+                    <div class="day-header">☀️ Sunday Fun</div>
+                    <div class="time-slot" data-time="morning">
+                        <div class="time-label">Morning (9am-12pm)</div>
+                    </div>
+                    <div class="time-slot" data-time="afternoon">
+                        <div class="time-label">Afternoon (1pm-4pm)</div>
+                    </div>
+                    <div class="time-slot" data-time="evening">
+                        <div class="time-label">Evening (5pm-7pm)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let draggedElement = null;
+        let weekendHistory = JSON.parse(localStorage.getItem('zachWeekendHistory') || '[]');
+        let futureIdeas = JSON.parse(localStorage.getItem('zachFutureIdeas') || '[]');
+        let voiceRecognition = null;
+        
+        // Initialize voice recognition if available
+        if ('webkitSpeechRecognition' in window) {
+            voiceRecognition = new webkitSpeechRecognition();
+            voiceRecognition.continuous = false;
+            voiceRecognition.interimResults = false;
+            voiceRecognition.lang = 'en-US';
+        }
+        
+        // Toggle category visibility
+        function toggleCategory(categoryId) {
+            const content = document.getElementById(categoryId);
+            content.style.display = content.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Initialize all categories as visible
+        document.addEventListener('DOMContentLoaded', function() {
+            ['nintendo', 'outdoor-screen', 'quiet-outdoor', 'hands-on', 'backup'].forEach(id => {
+                document.getElementById(id).style.display = 'block';
+            });
+            
+            // Add priority filter functionality
+            document.querySelectorAll('.priority-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // Update active button
+                    document.querySelectorAll('.priority-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Filter activities
+                    const priority = this.dataset.priority;
+                    filterActivitiesByPriority(priority);
+                });
+            });
+        });
+
+        function filterActivitiesByPriority(priority) {
+            document.querySelectorAll('.activity-item').forEach(item => {
+                if (priority === 'all' || item.dataset.priority === priority) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+        }
+
+        // Drag and drop functionality
+        document.addEventListener('dragstart', function(e) {
+            if (e.target.classList.contains('activity-item')) {
+                draggedElement = e.target.cloneNode(true);
+                e.target.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'copy';
+            }
+        });
+
+        document.addEventListener('dragend', function(e) {
+            if (e.target.classList.contains('activity-item')) {
+                e.target.classList.remove('dragging');
+            }
+        });
+
+        document.addEventListener('dragover', function(e) {
+            if (e.target.classList.contains('time-slot') || e.target.closest('.time-slot')) {
+                e.preventDefault();
+                const timeSlot = e.target.classList.contains('time-slot') ? e.target : e.target.closest('.time-slot');
+                timeSlot.classList.add('drop-zone');
+            }
+        });
+
+        document.addEventListener('dragleave', function(e) {
+            if (e.target.classList.contains('time-slot')) {
+                e.target.classList.remove('drop-zone');
+            }
+        });
+
+        document.addEventListener('drop', function(e) {
+            if (e.target.classList.contains('time-slot') || e.target.closest('.time-slot')) {
+                e.preventDefault();
+                const timeSlot = e.target.classList.contains('time-slot') ? e.target : e.target.closest('.time-slot');
+                timeSlot.classList.remove('drop-zone');
+                
+                if (draggedElement) {
+                    // Create dropped activity
+                    const droppedActivity = document.createElement('div');
+                    droppedActivity.className = 'dropped-activity';
+                    droppedActivity.innerHTML = draggedElement.innerHTML + 
+                        '<button class="remove-btn" onclick="removeActivity(this)">×</button>';
+                    
+                    timeSlot.appendChild(droppedActivity);
+                    draggedElement = null;
+                }
+            }
+        });
+
+        function removeActivity(btn) {
+            btn.parentElement.remove();
+        }
+
+        function clearAll() {
+            document.querySelectorAll('.dropped-activity').forEach(activity => {
+                activity.remove();
+            });
+        }
+
+        function saveWeekend() {
+            const plan = {};
+            document.querySelectorAll('.day-column').forEach(day => {
+                const dayName = day.classList.contains('saturday') ? 'Saturday' : 'Sunday';
+                plan[dayName] = {};
+                
+                day.querySelectorAll('.time-slot').forEach(slot => {
+                    const time = slot.dataset.time;
+                    const activities = [];
+                    slot.querySelectorAll('.dropped-activity .activity-name').forEach(activity => {
+                        activities.push(activity.textContent);
+                    });
+                    plan[dayName][time] = activities;
+                });
+            });
+            
+            console.log('Weekend Plan:', plan);
+            alert('Weekend plan saved! Check console for details. You could copy this to share with Zach!');
+        }
+
+        function showTips() {
+            alert(`🧠 Zach-Friendly Planning Tips:
+
+• Call venues first to check for special events
+• Start outdoor activities early (9-10am) before crowds
+• Always have a backup indoor plan ready
+• Let Zach help choose between 2-3 options
+• Frame activities in Nintendo terms he loves
+• iPad breaks are regulation tools, not "giving in"
+• 1-2 hours max per activity
+• Look for Mario connections everywhere!`);
+        }
+
+        function priorityMode() {
+            const currentFilter = document.querySelector('.priority-btn.active').dataset.priority;
+            const nextFilter = currentFilter === 'all' ? 'must' : 
+                             currentFilter === 'must' ? 'want' : 
+                             currentFilter === 'want' ? 'idea' : 'all';
+            
+            document.querySelector(`[data-priority="${nextFilter}"]`).click();
+        }
+
+        function generateVisualSchedule() {
+            const scheduledActivities = [];
+            
+            document.querySelectorAll('.dropped-activity').forEach(activity => {
+                const activityName = activity.querySelector('.activity-name').textContent;
+                const timeSlot = activity.closest('.time-slot');
+                const day = activity.closest('.day-column').classList.contains('saturday') ? 'Saturday' : 'Sunday';
+                const time = timeSlot.dataset.time;
+                
+                scheduledActivities.push({
+                    name: activityName,
+                    day: day,
+                    time: time
+                });
+            });
+
+            if (scheduledActivities.length === 0) {
+                alert('Please drag some activities to time slots first to generate a visual schedule!');
+                return;
+            }
+
+            const scheduleOutput = `
+🎨 VISUAL SCHEDULE REQUEST FOR ZACH
+
+Activities to create icons for:
+${scheduledActivities.map(a => `• ${a.name} (${a.day} ${a.time})`).join('\n')}
+
+Schedule Layout:
+${Object.entries(scheduledActivities.reduce((acc, activity) => {
+    const key = `${activity.day} ${activity.time}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(activity.name);
+    return acc;
+}, {})).map(([timeSlot, activities]) => `${timeSlot}: ${activities.join(', ')}`).join('\n')}
+
+Instructions for Claude:
+1. Create simple, clear icons for each activity (circular with border)
+2. Design time block cards showing activity sequence
+3. Use autism-friendly design (clear, minimal, consistent)
+4. Include backup activity icons for flexibility
+5. Consider Zach's Nintendo interests in icon design
+
+Copy this text and paste it into a new conversation with Claude to generate the visual schedule!`;
+
+            // Show the output in a better way
+            const popup = window.open('', '_blank', 'width=600,height=400');
+            popup.document.write(`
+                <html>
+                    <head><title>Visual Schedule Request</title></head>
+                    <body style="font-family: monospace; padding: 20px; background: #f0f0f0;">
+                        <h2>📋 Copy this request for Visual Schedule generation:</h2>
+                        <textarea style="width: 100%; height: 300px; font-family: monospace;" readonly>${scheduleOutput}</textarea>
+                        <button onclick="navigator.clipboard.writeText(document.querySelector('textarea').value); alert('Copied!')">📋 Copy to Clipboard</button>
+                    </body>
+                </html>
+            `);
+        }
+
+        function startVoiceInput() {
+            if (!voiceRecognition) {
+                alert('Voice recognition not supported in this browser. Try Chrome or Edge.');
+                return;
+            }
+
+            const voiceBtn = document.querySelector('.voice-btn');
+            const voiceStatus = document.getElementById('voiceStatus');
+            
+            voiceBtn.classList.add('listening');
+            voiceBtn.textContent = '🎤 Listening...';
+            voiceStatus.textContent = 'Speak now...';
+
+            voiceRecognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('quickIdea').value = transcript;
+                
+                voiceBtn.classList.remove('listening');
+                voiceBtn.textContent = '🎤 Voice Add';
+                voiceStatus.textContent = 'Got it!';
+                
+                setTimeout(() => {
+                    voiceStatus.textContent = '';
+                }, 2000);
+            };
+
+            voiceRecognition.onerror = function(event) {
+                voiceBtn.classList.remove('listening');
+                voiceBtn.textContent = '🎤 Voice Add';
+                voiceStatus.textContent = 'Error - try again';
+                
+                setTimeout(() => {
+                    voiceStatus.textContent = '';
+                }, 2000);
+            };
+
+            voiceRecognition.start();
+        }
+
+        function addQuickIdea() {
+            const ideaText = document.getElementById('quickIdea').value.trim();
+            const priority = document.getElementById('quickPriority').value;
+            const weekend = document.getElementById('quickWeekend').value;
+
+            if (!ideaText) {
+                alert('Please enter an activity idea first!');
+                return;
+            }
+
+            const newIdea = {
+                id: Date.now(),
+                text: ideaText,
+                priority: priority,
+                weekend: weekend,
+                created: new Date().toLocaleDateString()
+            };
+
+            if (weekend === 'this') {
+                // Add to current activities
+                addActivityToSidebar(newIdea);
+            } else {
+                // Add to future ideas
+                futureIdeas.push(newIdea);
+                localStorage.setItem('zachFutureIdeas', JSON.stringify(futureIdeas));
+            }
+
+            // Clear form
+            document.getElementById('quickIdea').value = '';
+            document.getElementById('quickPriority').value = 'idea';
+            document.getElementById('quickWeekend').value = 'this';
+
+            alert('Activity added successfully!');
+        }
+
+        function addActivityToSidebar(idea) {
+            // Find the best category for this idea (simple keyword matching)
+            let categoryId = 'backup'; // default
+            const text = idea.text.toLowerCase();
+            
+            if (text.includes('nintendo') || text.includes('mario') || text.includes('game')) {
+                categoryId = 'nintendo';
+            } else if (text.includes('outdoor') || text.includes('walk') || text.includes('scooter')) {
+                categoryId = 'quiet-outdoor';
+            } else if (text.includes('museum') || text.includes('indoor')) {
+                categoryId = 'hands-on';
+            }
+
+            const categoryContent = document.getElementById(categoryId);
+            const newActivityDiv = document.createElement('div');
+            newActivityDiv.className = 'activity-item';
+            newActivityDiv.draggable = true;
+            newActivityDiv.dataset.priority = idea.priority;
+            
+            newActivityDiv.innerHTML = `
+                <div class="activity-name">${idea.text}</div>
+                <div class="activity-details">Added ${idea.created}</div>
+                <div class="activity-tags">
+                    <span class="tag priority ${idea.priority}">${idea.priority === 'must' ? 'Must Do' : idea.priority === 'want' ? 'Want To Do' : 'Ideas/Maybe'}</span>
+                    <span class="tag">New</span>
+                </div>
+            `;
+
+            categoryContent.appendChild(newActivityDiv);
+        }
+
+        function openReflection() {
+            const reflectionWindow = window.open('', 'reflection', 'width=500,height=600');
+            reflectionWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Weekend Reflection for Zach</title>
+                        <style>
+                            body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
+                            .activity-reflect { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; }
+                            .rating { display: flex; gap: 5px; margin: 10px 0; }
+                            .star { cursor: pointer; font-size: 20px; }
+                            .star.active { color: #fbbf24; }
+                            .star.inactive { color: #d1d5db; }
+                            textarea { width: 100%; height: 60px; margin: 5px 0; }
+                            button { background: #3b82f6; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; }
+                        </style>
+                    </head>
+                    <body>
+                        <h2>🎯 How did this weekend go with Zach?</h2>
+                        <div id="reflectionForm">
+                            <div class="activity-reflect">
+                                <h3>Overall Weekend Rating</h3>
+                                <div class="rating" data-activity="overall">
+                                    <span class="star inactive" onclick="setRating('overall', 1)">⭐</span>
+                                    <span class="star inactive" onclick="setRating('overall', 2)">⭐</span>
+                                    <span class="star inactive" onclick="setRating('overall', 3)">⭐</span>
+                                    <span class="star inactive" onclick="setRating('overall', 4)">⭐</span>
+                                    <span class="star inactive" onclick="setRating('overall', 5)">⭐</span>
+                                </div>
+                                <textarea placeholder="What went really well? (specific successes)"></textarea>
+                                <textarea placeholder="What was challenging? (triggers, environment, timing)"></textarea>
+                                <textarea placeholder="Any escalations or meltdowns? (0-60 moments, what preceded them)"></textarea>
+                                <textarea placeholder="PDA strategies that worked? (how choices were presented, autonomy preserved)"></textarea>
+                                <textarea placeholder="Time management observations? (transitions, duration, awareness)"></textarea>
+                                <textarea placeholder="Communication patterns? (hurtful words, frustration expression)"></textarea>
+                                <textarea placeholder="Environmental factors? (noise, crowds, unexpected events)"></textarea>
+                                <textarea placeholder="Nintendo connections that helped? (Yoshi references, Mario framing)"></textarea>
+                            </div>
+                            <button onclick="saveReflection()">💾 Save Reflection</button>
+                        </div>
+                        
+                        <script>
+                            let reflectionData = { overall: 0, notes: {} };
+                            
+                            function setRating(activity, rating) {
+                                reflectionData[activity] = rating;
+                                const stars = document.querySelectorAll('[data-activity="' + activity + '"] .star');
+                                stars.forEach((star, index) => {
+                                    star.className = index < rating ? 'star active' : 'star inactive';
+                                });
+                            }
+                            
+                            function saveReflection() {
+                                const textareas = document.querySelectorAll('textarea');
+                                reflectionData.notes = {
+                                    successes: textareas[0].value,
+                                    challenges: textareas[1].value,
+                                    escalations: textareas[2].value,
+                                    pda_strategies: textareas[3].value,
+                                    time_management: textareas[4].value,
+                                    communication: textareas[5].value,
+                                    environmental: textareas[6].value,
+                                    nintendo_connections: textareas[7].value,
+                                    date: new Date().toLocaleDateString()
+                                };
+                                
+                                // Generate summary for sharing
+                                const summary = generateSharingSummary(reflectionData);
+                                
+                                // Send back to parent window
+                                window.opener.saveWeekendReflection(reflectionData, summary);
+                                alert('Reflection saved! Summary generated for sharing.');
+                                window.close();
+                            }
+                            
+                            function generateSharingSummary(data) {
+                                return \`📊 ZACH WEEKEND SUMMARY (\${data.notes.date})
+Rating: \${data.overall}/5 ⭐
+
+🎯 SUCCESSES:
+\${data.notes.successes || 'None noted'}
+
+⚠️ CHALLENGES:
+\${data.notes.challenges || 'None noted'}
+
+🔄 PDA STRATEGIES THAT WORKED:
+\${data.notes.pda_strategies || 'None noted'}
+
+⏰ TIME MANAGEMENT:
+\${data.notes.time_management || 'None noted'}
+
+🗣️ COMMUNICATION PATTERNS:
+\${data.notes.communication || 'None noted'}
+
+🎮 NINTENDO CONNECTIONS:
+\${data.notes.nintendo_connections || 'None noted'}
+
+---
+Brief summary for co-parent/therapist sharing\`;
+                            }
+                        </script>
+                    </body>
+                </html>
+            `);
+        }
+
+        function saveWeekendReflection(reflection, summary) {
+            weekendHistory.push(reflection);
+            localStorage.setItem('zachWeekendHistory', JSON.stringify(weekendHistory));
+            
+            // Show summary in popup for easy copying/sharing
+            if (summary) {
+                const summaryWindow = window.open('', 'summary', 'width=500,height=400');
+                summaryWindow.document.write(`
+                    <html>
+                        <head><title>Sharing Summary</title></head>
+                        <body style="font-family: monospace; padding: 20px; background: #f9f9f9;">
+                            <h2>📋 Copy to share with co-parent/therapists:</h2>
+                            <textarea style="width: 100%; height: 250px; font-family: monospace;" readonly>${summary}</textarea>
+                            <button onclick="navigator.clipboard.writeText(document.querySelector('textarea').value); alert('Copied to clipboard!')">📋 Copy Summary</button>
+                            <button onclick="window.close()">Close</button>
+                        </body>
+                    </html>
+                `);
+            }
+            
+            // Update UI to show reflection was saved
+            document.querySelector('.reflection-btn').textContent = '✅ Reflection Saved';
+            setTimeout(() => {
+                document.querySelector('.reflection-btn').textContent = '✨ How did activities go?';
+            }, 3000);
+        }
+
+        function showFutureIdeas() {
+            const futureIdeasDiv = document.getElementById('futureIdeas');
+            const futureIdeasList = document.getElementById('futureIdeasList');
+            
+            futureIdeasList.innerHTML = '';
+            
+            futureIdeas.forEach(idea => {
+                const ideaDiv = document.createElement('div');
+                ideaDiv.className = 'future-idea';
+                ideaDiv.innerHTML = `
+                    <strong>${idea.text}</strong> (${idea.priority})
+                    <br><small>Added: ${idea.created}</small>
+                    <button onclick="moveToCurrent(${idea.id})" style="float: right; font-size: 0.7em;">Use This Weekend</button>
+                `;
+                futureIdeasList.appendChild(ideaDiv);
+            });
+            
+            futureIdeasDiv.style.display = 'block';
+        }
+
+        function hideFutureIdeas() {
+            document.getElementById('futureIdeas').style.display = 'none';
+        }
+
+        function moveToCurrent(ideaId) {
+            const idea = futureIdeas.find(i => i.id === ideaId);
+            if (idea) {
+                addActivityToSidebar(idea);
+                futureIdeas = futureIdeas.filter(i => i.id !== ideaId);
+                localStorage.setItem('zachFutureIdeas', JSON.stringify(futureIdeas));
+                showFutureIdeas(); // Refresh the display
+            }
+        }
+
+        // Add some visual feedback
+        document.querySelectorAll('.activity-item').forEach(item => {
+            item.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-2px) scale(1.02)';
+            });
+            
+            item.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+    </script>
+</body>
+</html>
