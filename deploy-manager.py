@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """
-G.A.R.D.E.N. Deploy Manager - Complete Version with Menu Loop
-Phase 1 Enhancement: Persistent menu system with full project management
+G.A.R.D.E.N. Deploy Manager v2.0 - Garden Fork System
+Enhanced with repository forking and core file management
 """
 
 import os
 import sys
-import shutil
 import json
+import shutil
 import subprocess
-from datetime import datetime
 from pathlib import Path
+from datetime import datetime
+import urllib.request
+import zipfile
 
+# Color codes for terminal output
 class Colors:
-    """ANSI color codes for terminal output"""
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
     OKCYAN = '\033[96m'
@@ -22,734 +24,487 @@ class Colors:
     FAIL = '\033[91m'
     ENDC = '\033[0m'
     BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
-class GARDENDeployManager:
+class GardenForkManager:
     def __init__(self):
-        self.root_dir = Path.cwd()
-        self.pending_dir = self.root_dir / "pending-updates"
-        self.deployed_dir = self.root_dir / "deployed-projects"
-        self.templates_dir = self.root_dir / "project-templates"
+        self.current_dir = Path.cwd()
+        self.garden_root = self.current_dir
+        self.main_garden_url = "https://github.com/scottloeb/garden"
         
-        # Ensure directories exist
-        self.pending_dir.mkdir(exist_ok=True)
-        self.deployed_dir.mkdir(exist_ok=True)
-        self.templates_dir.mkdir(exist_ok=True)
-        
-        print(f"{Colors.HEADER}🌱 G.A.R.D.E.N. Deploy Manager v1.1{Colors.ENDC}")
-        print(f"{Colors.OKBLUE}Location: {self.root_dir}{Colors.ENDC}")
-        print()
-
-    def show_menu(self):
-        """Display the main menu"""
-        print(f"{Colors.BOLD}═══════════════════════════════════════════════════════════════════{Colors.ENDC}")
-        print(f"{Colors.HEADER}🌱 G.A.R.D.E.N. PROJECT MANAGEMENT MENU{Colors.ENDC}")
-        print(f"{Colors.BOLD}═══════════════════════════════════════════════════════════════════{Colors.ENDC}")
-        print()
-        print(f"{Colors.OKGREEN}📋 PROJECT OPERATIONS:{Colors.ENDC}")
-        print(f"  {Colors.OKCYAN}1.{Colors.ENDC} List pending projects")
-        print(f"  {Colors.OKCYAN}2.{Colors.ENDC} Create new project")
-        print(f"  {Colors.OKCYAN}3.{Colors.ENDC} View project details")
-        print(f"  {Colors.OKCYAN}4.{Colors.ENDC} Deploy project to Vercel")
-        print()
-        print(f"{Colors.OKGREEN}🔧 SYSTEM OPERATIONS:{Colors.ENDC}")
-        print(f"  {Colors.OKCYAN}5.{Colors.ENDC} Initialize Git repository")
-        print(f"  {Colors.OKCYAN}6.{Colors.ENDC} Create web uploader interface")
-        print(f"  {Colors.OKCYAN}7.{Colors.ENDC} System status")
-        print()
-        print(f"{Colors.OKGREEN}📊 DATA OPERATIONS:{Colors.ENDC}")
-        print(f"  {Colors.OKCYAN}8.{Colors.ENDC} Export project list")
-        print(f"  {Colors.OKCYAN}9.{Colors.ENDC} Backup projects")
-        print()
-        print(f"  {Colors.WARNING}0.{Colors.ENDC} Exit")
-        print(f"{Colors.BOLD}═══════════════════════════════════════════════════════════════════{Colors.ENDC}")
-        print()
-
-    def list_pending_projects(self):
-        """List all projects in pending-updates directory"""
-        print(f"{Colors.HEADER}📋 PENDING PROJECTS{Colors.ENDC}")
-        print(f"{Colors.BOLD}─────────────────────────────────────{Colors.ENDC}")
-        
-        if not self.pending_dir.exists():
-            print(f"{Colors.WARNING}No pending-updates directory found.{Colors.ENDC}")
-            return
-        
-        projects = [d for d in self.pending_dir.iterdir() if d.is_dir()]
-        
-        if not projects:
-            print(f"{Colors.WARNING}No pending projects found.{Colors.ENDC}")
-            print(f"Create a new project with option 2.")
-            return
-        
-        for i, project in enumerate(projects, 1):
-            print(f"{Colors.OKGREEN}{i:2d}.{Colors.ENDC} {project.name}")
-            
-            # Show project contents briefly
-            files = list(project.iterdir())[:3]  # Show first 3 files
-            for file in files:
-                if file.is_file():
-                    print(f"     📄 {file.name}")
-                elif file.is_dir():
-                    print(f"     📁 {file.name}/")
-            
-            if len(list(project.iterdir())) > 3:
-                remaining = len(list(project.iterdir())) - 3
-                print(f"     ... +{remaining} more items")
-            print()
-
-    def create_new_project(self):
-        """Create a new project in pending-updates"""
-        print(f"{Colors.HEADER}🆕 CREATE NEW PROJECT{Colors.ENDC}")
-        print(f"{Colors.BOLD}─────────────────────────────────────{Colors.ENDC}")
-        
-        project_name = input(f"{Colors.OKCYAN}Enter project name: {Colors.ENDC}").strip()
-        if not project_name:
-            print(f"{Colors.FAIL}❌ Project name cannot be empty.{Colors.ENDC}")
-            return
-        
-        # Sanitize project name
-        safe_name = "".join(c for c in project_name if c.isalnum() or c in "-_").lower()
-        if safe_name != project_name:
-            print(f"{Colors.WARNING}⚠️  Project name sanitized to: {safe_name}{Colors.ENDC}")
-        
-        project_dir = self.pending_dir / safe_name
-        
-        if project_dir.exists():
-            print(f"{Colors.FAIL}❌ Project '{safe_name}' already exists.{Colors.ENDC}")
-            return
-        
-        # Create project directory
-        project_dir.mkdir()
-        
-        # Choose project type
-        print(f"\n{Colors.OKGREEN}📋 SELECT PROJECT TYPE:{Colors.ENDC}")
-        print(f"  {Colors.OKCYAN}1.{Colors.ENDC} React Component (TSX)")
-        print(f"  {Colors.OKCYAN}2.{Colors.ENDC} Single HTML Page (Dan's Pattern)")
-        print(f"  {Colors.OKCYAN}3.{Colors.ENDC} Node.js Express App")
-        print(f"  {Colors.OKCYAN}4.{Colors.ENDC} Empty project")
-        
-        choice = input(f"\n{Colors.OKCYAN}Choose project type (1-4): {Colors.ENDC}").strip()
-        
-        if choice == "1":
-            self._create_react_component(project_dir, safe_name)
-        elif choice == "2":
-            self._create_html_page(project_dir, safe_name)
-        elif choice == "3":
-            self._create_express_app(project_dir, safe_name)
-        elif choice == "4":
-            self._create_empty_project(project_dir, safe_name)
-        else:
-            print(f"{Colors.WARNING}⚠️  Invalid choice. Creating empty project.{Colors.ENDC}")
-            self._create_empty_project(project_dir, safe_name)
-        
-        print(f"\n{Colors.OKGREEN}✅ Project '{safe_name}' created successfully!{Colors.ENDC}")
-        print(f"{Colors.OKBLUE}📁 Location: {project_dir}{Colors.ENDC}")
-
-    def _create_react_component(self, project_dir, name):
-        """Create a React component project"""
-        # Create main component file
-        component_content = f'''import React, {{ useState }} from 'react';
-
-const {name.replace('-', '').title()}Component = () => {{
-  const [count, setCount] = useState(0);
-
-  return (
-    <div className="p-8 max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-4">{name.replace('-', ' ').title()}</h1>
-      <div className="space-y-4">
-        <p className="text-gray-600">Count: {{count}}</p>
-        <div className="space-x-2">
-          <button 
-            onClick={{() => setCount(count + 1)}}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-          >
-            Increment
-          </button>
-          <button 
-            onClick={{() => setCount(count - 1)}}
-            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-          >
-            Decrement
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}};
-
-export default {name.replace('-', '').title()}Component;
-'''
-        
-        (project_dir / f"{name}.tsx").write_text(component_content)
-        
-        # Create package.json
-        package_json = {
-            "name": name,
-            "version": "1.0.0",
-            "dependencies": {
-                "react": "^18.2.0",
-                "react-dom": "^18.2.0"
-            },
-            "devDependencies": {
-                "typescript": "^5.0.0",
-                "@types/react": "^18.0.0",
-                "@types/react-dom": "^18.0.0"
-            }
+        # Core files that get forked to every project
+        self.core_files = {
+            'contexts/behindTheScenes/CIT_Brand_Style_Guide_20250511.md',
+            'contexts/behindTheScenes/CIT_ADAcompliance_20250510.md',
+            'contexts/behindTheScenes/CIT_Version_Control_20250511.md', 
+            'contexts/behindTheScenes/CIT_meta-cit-framework_20250519.md',
+            'contexts/CIT_Personal_20250518.md',
+            'contexts/CIT_GARDEN_20250518.md',
+            'toolshed/nodepad-4.0.0.html',
+            '.gitignore'
         }
         
-        (project_dir / "package.json").write_text(json.dumps(package_json, indent=2))
+        # Project templates with their specific additional contexts
+        self.project_templates = {
+            'recipe': {
+                'name': 'Recipe NodePad',
+                'description': 'Recipe management with NodePad architecture',
+                'additional_contexts': ['contexts/CIT_Cooking_*.md'],
+                'starter_files': ['recipe-nodepad.html']
+            },
+            'budget': {
+                'name': 'Budget NodePad', 
+                'description': 'Financial management with graph visualization',
+                'additional_contexts': ['contexts/CIT_BudgetNodePad_*.md'],
+                'starter_files': ['budget-nodepad.html']
+            },
+            'sailing': {
+                'name': 'Sailing Tools',
+                'description': 'Marine navigation and planning tools',
+                'additional_contexts': ['contexts/CIT_SailingWatch_*.md'],
+                'starter_files': ['sailing-tools.html']
+            },
+            'planning': {
+                'name': 'Planning NodePad',
+                'description': 'Project and activity planning interface',
+                'additional_contexts': ['contexts/CIT_Zach_*.md'],
+                'starter_files': ['planning-nodepad.html']
+            },
+            'nodepad': {
+                'name': 'Pure NodePad',
+                'description': 'Clean NodePad implementation for any domain',
+                'additional_contexts': [],
+                'starter_files': ['nodepad.html']
+            }
+        }
+
+    def print_header(self):
+        print(f"{Colors.HEADER}{Colors.BOLD}")
+        print("🌱 G.A.R.D.E.N. Deploy Manager v2.0 - Garden Fork System")
+        print("=" * 60)
+        print(f"{Colors.ENDC}")
+
+    def print_menu(self):
+        print(f"\n{Colors.OKBLUE}Available Operations:{Colors.ENDC}")
+        print("0. 🌱 Fork New Garden Project (with core files)")
+        print("1. 📂 List Existing Projects")
+        print("2. 🚀 Deploy Project to Vercel")
+        print("3. 📊 Project Status Dashboard") 
+        print("4. 💾 Backup All Projects")
+        print("5. 📤 Export Project")
+        print("6. 🔄 Sync Core Files from Main Garden")
+        print("7. 📋 Create Pull Request for Core Updates")
+        print("8. 🧹 Clean Up Temporary Files")
+        print("9. ❓ Help & Documentation")
+        print("10. 🔧 System Status & Tool Check")
+        print("q. Exit")
+
+    def fork_garden_project(self):
+        """Create a new project with forked GARDEN core files"""
+        print(f"\n{Colors.HEADER}🌱 Fork New Garden Project{Colors.ENDC}")
         
-        # Create README
-        readme_content = f'''# {name.replace('-', ' ').title()}
-
-A React component created with G.A.R.D.E.N. Deploy Manager.
-
-## Usage
-
-```tsx
-import {name.replace('-', '').title()}Component from './{name}';
-
-function App() {{
-  return <{name.replace('-', '').title()}Component />;
-}}
-```
-
-## Development
-
-This component was generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} using the G.A.R.D.E.N. project management system.
-'''
+        # Project name input
+        project_name = input("Enter project name (lowercase, no spaces): ").strip()
+        if not project_name or not project_name.replace('-', '').replace('_', '').isalnum():
+            print(f"{Colors.FAIL}❌ Invalid project name. Use lowercase letters, numbers, hyphens, underscores only.{Colors.ENDC}")
+            return
+            
+        # Check if project exists
+        project_dir = self.garden_root / project_name
+        if project_dir.exists():
+            print(f"{Colors.FAIL}❌ Project '{project_name}' already exists.{Colors.ENDC}")
+            return
+            
+        # Select project template
+        print(f"\n{Colors.OKBLUE}Available Project Templates:{Colors.ENDC}")
+        template_keys = list(self.project_templates.keys())
+        for i, (key, template) in enumerate(self.project_templates.items()):
+            print(f"{i + 1}. {template['name']} - {template['description']}")
+            
+        try:
+            choice = int(input("Select template (number): ")) - 1
+            if choice < 0 or choice >= len(template_keys):
+                raise ValueError()
+            template_key = template_keys[choice]
+            template = self.project_templates[template_key]
+        except (ValueError, IndexError):
+            print(f"{Colors.FAIL}❌ Invalid selection.{Colors.ENDC}")
+            return
+            
+        print(f"\n{Colors.WARNING}🏗️ Creating project '{project_name}' with template '{template['name']}'...{Colors.ENDC}")
         
-        (project_dir / "README.md").write_text(readme_content)
+        try:
+            # Create project directory
+            project_dir.mkdir(exist_ok=True)
+            
+            # Fork core GARDEN files
+            self._fork_core_files(project_dir)
+            
+            # Add template-specific contexts
+            self._add_template_contexts(project_dir, template)
+            
+            # Create starter files
+            self._create_starter_files(project_dir, template_key, template)
+            
+            # Initialize git repository
+            self._init_project_git(project_dir, project_name)
+            
+            # Create project metadata
+            self._create_project_metadata(project_dir, project_name, template_key)
+            
+            print(f"\n{Colors.OKGREEN}✅ Successfully forked garden project '{project_name}'!{Colors.ENDC}")
+            print(f"{Colors.OKCYAN}📁 Location: {project_dir}{Colors.ENDC}")
+            print(f"{Colors.OKCYAN}🌐 Ready for: Claude project knowledge upload{Colors.ENDC}")
+            print(f"{Colors.OKCYAN}🚀 Deploy with: Option 2 (Deploy to Vercel){Colors.ENDC}")
+            
+        except Exception as e:
+            print(f"{Colors.FAIL}❌ Error creating project: {str(e)}{Colors.ENDC}")
+            if project_dir.exists():
+                shutil.rmtree(project_dir)
 
-    def _create_html_page(self, project_dir, name):
-        """Create a single HTML page following Dan's pattern"""
-        html_content = f'''<!DOCTYPE html>
+    def _fork_core_files(self, project_dir):
+        """Copy core GARDEN files to new project"""
+        print(f"{Colors.OKCYAN}📋 Forking core GARDEN files...{Colors.ENDC}")
+        
+        for core_file in self.core_files:
+            source_path = self.garden_root / core_file
+            dest_path = project_dir / core_file
+            
+            if source_path.exists():
+                # Create directory if needed
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source_path, dest_path)
+                print(f"  ✓ {core_file}")
+            else:
+                print(f"  ⚠️ Core file not found: {core_file}")
+
+    def _add_template_contexts(self, project_dir, template):
+        """Add template-specific context files"""
+        if not template['additional_contexts']:
+            return
+            
+        print(f"{Colors.OKCYAN}📋 Adding template-specific contexts...{Colors.ENDC}")
+        
+        for context_pattern in template['additional_contexts']:
+            # Find matching context files
+            import glob
+            matching_files = glob.glob(str(self.garden_root / context_pattern))
+            
+            for source_file in matching_files:
+                source_path = Path(source_file)
+                rel_path = source_path.relative_to(self.garden_root)
+                dest_path = project_dir / rel_path
+                
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source_path, dest_path)
+                print(f"  ✓ {rel_path}")
+
+    def _create_starter_files(self, project_dir, template_key, template):
+        """Create starter application files"""
+        print(f"{Colors.OKCYAN}🎯 Creating starter application...{Colors.ENDC}")
+        
+        if template_key == 'recipe':
+            self._create_recipe_nodepad(project_dir)
+        elif template_key == 'budget':
+            self._create_budget_nodepad(project_dir)
+        elif template_key == 'sailing':
+            self._create_sailing_tools(project_dir)
+        elif template_key == 'planning':
+            self._create_planning_nodepad(project_dir)
+        else:  # nodepad
+            self._create_pure_nodepad(project_dir)
+
+    def _create_recipe_nodepad(self, project_dir):
+        """Create recipe-specific NodePad application"""
+        recipe_html = project_dir / "recipe-nodepad.html"
+        
+        # Base content on Dan's NodePad pattern but recipe-focused
+        recipe_content = '''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <title>Recipe NodePad - GARDEN Project</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{name.replace('-', ' ').title()}</title>
-    <style>
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }}
-        
-        body {{
-            font-family: system-ui, -apple-system, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: #f5f5f5;
-        }}
-        
-        .container {{
-            max-width: 800px;
-            margin: 2rem auto;
-            padding: 2rem;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }}
-        
-        h1 {{
-            color: #2563eb;
-            margin-bottom: 1rem;
-        }}
-        
-        .button {{
-            background: #2563eb;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }}
-        
-        .button:hover {{
-            background: #1d4ed8;
-        }}
-        
-        .status {{
-            margin-top: 1rem;
-            padding: 1rem;
-            background: #f0f9ff;
-            border-left: 4px solid #2563eb;
-            border-radius: 4px;
-        }}
-    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>{name.replace('-', ' ').title()}</h1>
-        <p>This is a single-file application created with G.A.R.D.E.N. Deploy Manager following Dan's NodePad pattern.</p>
-        
-        <div style="margin: 2rem 0;">
-            <button class="button" onclick="handleAction()">Click Me!</button>
-        </div>
-        
-        <div id="status" class="status" style="display: none;">
-            <strong>Action performed!</strong> Time: <span id="timestamp"></span>
-        </div>
-    </div>
-
+    <div id="app"></div>
+    
     <script>
-        function handleAction() {{
-            const status = document.getElementById('status');
-            const timestamp = document.getElementById('timestamp');
-            
-            timestamp.textContent = new Date().toLocaleString();
-            status.style.display = 'block';
-            
-            console.log('{name.replace('-', ' ').title()} action performed at', new Date());
-        }}
+    /**
+     * Recipe NodePad - Built on Dan's NodePad 4.0.0 Pattern
+     * A recipe management system with hierarchical organization
+     */
+    
+    // Recipe-specific node types and emoji progression
+    const RECIPE_EMOJIS = {
+        recipe: '🍳',
+        ingredient: '🥕', 
+        step: '👨‍🍳',
+        variation: '✨',
+        note: '📝'
+    };
+    
+    const RECIPE_PROGRESSION = {
+        '🍳': '🥕',  // Recipe -> Ingredients
+        '🥕': '👨‍🍳', // Ingredients -> Steps  
+        '👨‍🍳': '✨',  // Steps -> Variations
+        '✨': '📝'   // Variations -> Notes
+    };
+    
+    // Initialize Recipe NodePad
+    document.addEventListener('DOMContentLoaded', () => {
+        // TODO: Implement recipe-specific NodePad
+        // - Recipe cards with ingredients/steps hierarchy
+        // - Print-friendly recipe cards (4x6)
+        // - Shopping list generation
+        // - Meal planning integration
+        // - Nutrition tracking nodes
         
-        // Initialize
-        document.addEventListener('DOMContentLoaded', function() {{
-            console.log('{name.replace('-', ' ').title()} initialized');
-        }});
+        document.getElementById('app').innerHTML = `
+            <div style="padding: 2rem; text-align: center; font-family: system-ui;">
+                <h1>🍳 Recipe NodePad</h1>
+                <p>Recipe management with NodePad architecture</p>
+                <p><em>Ready for implementation using Dan's NodePad 4.0.0 pattern</em></p>
+                <div style="margin-top: 2rem; padding: 1rem; background: #f0f8ff; border-radius: 8px;">
+                    <h3>Next Steps:</h3>
+                    <ul style="text-align: left; display: inline-block;">
+                        <li>Extend NodePad 4.0.0 with recipe-specific features</li>
+                        <li>Add ingredient/step/variation node types</li>
+                        <li>Implement 4x6 recipe card printing</li>
+                        <li>Create shopping list generation</li>
+                        <li>Add meal planning calendar</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+    });
     </script>
 </body>
 </html>'''
         
-        (project_dir / f"{name}.html").write_text(html_content)
+        recipe_html.write_text(recipe_content, encoding='utf-8')
+        print(f"  ✓ recipe-nodepad.html (starter template)")
 
-    def _create_express_app(self, project_dir, name):
-        """Create a Node.js Express application"""
-        # Create main app file
-        app_content = f'''const express = require('express');
-const path = require('path');
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-app.use(express.json());
-app.use(express.static('public'));
-
-// Routes
-app.get('/', (req, res) => {{
-    res.json({{
-        message: 'Welcome to {name.replace('-', ' ').title()}',
-        timestamp: new Date().toISOString(),
-        endpoints: [
-            'GET / - This message',
-            'GET /health - Health check',
-            'POST /api/data - Submit data'
-        ]
-    }});
-}});
-
-app.get('/health', (req, res) => {{
-    res.json({{ status: 'healthy', timestamp: new Date().toISOString() }});
-}});
-
-app.post('/api/data', (req, res) => {{
-    const {{ data }} = req.body;
-    console.log('Received data:', data);
-    res.json({{ success: true, received: data, timestamp: new Date().toISOString() }});
-}});
-
-app.listen(PORT, () => {{
-    console.log(`{name.replace('-', ' ').title()} running on port ${{PORT}}`);
-}});
-'''
+    def _create_budget_nodepad(self, project_dir):
+        """Create budget NodePad (copy existing if available)"""
+        budget_html = project_dir / "budget-nodepad.html"
         
-        (project_dir / "app.js").write_text(app_content)
-        
-        # Create package.json
-        package_json = {
-            "name": name,
-            "version": "1.0.0",
-            "description": f"{name.replace('-', ' ').title()} - Express API",
-            "main": "app.js",
-            "scripts": {
-                "start": "node app.js",
-                "dev": "nodemon app.js"
-            },
-            "dependencies": {
-                "express": "^4.18.0"
-            },
-            "devDependencies": {
-                "nodemon": "^3.0.0"
-            }
-        }
-        
-        (project_dir / "package.json").write_text(json.dumps(package_json, indent=2))
-
-    def _create_empty_project(self, project_dir, name):
-        """Create an empty project with basic structure"""
-        readme_content = f'''# {name.replace('-', ' ').title()}
-
-Empty project created with G.A.R.D.E.N. Deploy Manager.
-
-Created: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-## Next Steps
-
-Add your project files to this directory:
-- Source code files
-- Configuration files  
-- Documentation
-- Assets
-
-## Deployment
-
-Use the G.A.R.D.E.N. Deploy Manager to deploy this project when ready.
-'''
-        
-        (project_dir / "README.md").write_text(readme_content)
-        (project_dir / ".gitkeep").write_text("")
-
-    def view_project_details(self):
-        """View detailed information about a specific project"""
-        print(f"{Colors.HEADER}📋 PROJECT DETAILS{Colors.ENDC}")
-        print(f"{Colors.BOLD}─────────────────────────────────────{Colors.ENDC}")
-        
-        projects = [d for d in self.pending_dir.iterdir() if d.is_dir()]
-        
-        if not projects:
-            print(f"{Colors.WARNING}No projects found.{Colors.ENDC}")
-            return
-        
-        print(f"{Colors.OKGREEN}Available projects:{Colors.ENDC}")
-        for i, project in enumerate(projects, 1):
-            print(f"  {Colors.OKCYAN}{i}.{Colors.ENDC} {project.name}")
-        
-        try:
-            choice = int(input(f"\n{Colors.OKCYAN}Select project number: {Colors.ENDC}")) - 1
-            if 0 <= choice < len(projects):
-                project = projects[choice]
-                self._show_project_details(project)
-            else:
-                print(f"{Colors.FAIL}❌ Invalid project number.{Colors.ENDC}")
-        except ValueError:
-            print(f"{Colors.FAIL}❌ Please enter a valid number.{Colors.ENDC}")
-
-    def _show_project_details(self, project_path):
-        """Show detailed information about a project"""
-        print(f"\n{Colors.BOLD}📁 PROJECT: {project_path.name}{Colors.ENDC}")
-        print(f"{Colors.BOLD}─────────────────────────────────────{Colors.ENDC}")
-        print(f"{Colors.OKBLUE}Location: {project_path}{Colors.ENDC}")
-        
-        # Show file tree
-        print(f"\n{Colors.OKGREEN}📂 Files and directories:{Colors.ENDC}")
-        self._show_tree(project_path, prefix="")
-        
-        # Show git status if it's a git repo
-        if (project_path / ".git").exists():
-            print(f"\n{Colors.OKGREEN}📊 Git Status:{Colors.ENDC}")
-            try:
-                result = subprocess.run(
-                    ["git", "status", "--short"], 
-                    cwd=project_path, 
-                    capture_output=True, 
-                    text=True
-                )
-                if result.stdout:
-                    print(result.stdout)
-                else:
-                    print("Working directory clean")
-            except subprocess.SubprocessError:
-                print("Could not get git status")
-
-    def _show_tree(self, path, prefix="", max_depth=3, current_depth=0):
-        """Recursively show directory tree"""
-        if current_depth >= max_depth:
-            return
-        
-        items = sorted(path.iterdir())
-        for i, item in enumerate(items):
-            is_last = i == len(items) - 1
-            
-            if item.is_dir():
-                print(f"{prefix}{'└── ' if is_last else '├── '}📁 {item.name}/")
-                if current_depth < max_depth - 1:
-                    extension = "    " if is_last else "│   "
-                    self._show_tree(item, prefix + extension, max_depth, current_depth + 1)
-            else:
-                print(f"{prefix}{'└── ' if is_last else '├── '}📄 {item.name}")
-
-    def deploy_to_vercel(self):
-        """Deploy a project to Vercel"""
-        print(f"{Colors.HEADER}🚀 DEPLOY TO VERCEL{Colors.ENDC}")
-        print(f"{Colors.BOLD}─────────────────────────────────────{Colors.ENDC}")
-        print(f"{Colors.WARNING}⚠️  This feature will be implemented in Phase 2{Colors.ENDC}")
-        print(f"{Colors.OKBLUE}For now, manually deploy using:{Colors.ENDC}")
-        print(f"  1. Copy project to separate directory")
-        print(f"  2. Run: vercel --prod")
-        print(f"  3. Follow Vercel prompts")
-
-    def initialize_git(self):
-        """Initialize or check Git repository"""
-        print(f"{Colors.HEADER}📊 GIT REPOSITORY STATUS{Colors.ENDC}")
-        print(f"{Colors.BOLD}─────────────────────────────────────{Colors.ENDC}")
-        
-        if (self.root_dir / ".git").exists():
-            print(f"{Colors.OKGREEN}✅ Git repository already initialized{Colors.ENDC}")
-            
-            try:
-                # Show git status
-                result = subprocess.run(["git", "status", "--short"], capture_output=True, text=True)
-                if result.stdout:
-                    print(f"\n{Colors.OKBLUE}📋 Current status:{Colors.ENDC}")
-                    print(result.stdout)
-                else:
-                    print(f"{Colors.OKGREEN}Working directory clean{Colors.ENDC}")
-                
-                # Show recent commits
-                result = subprocess.run(
-                    ["git", "log", "--oneline", "-5"], 
-                    capture_output=True, 
-                    text=True
-                )
-                if result.stdout:
-                    print(f"\n{Colors.OKBLUE}📜 Recent commits:{Colors.ENDC}")
-                    print(result.stdout)
-                    
-            except subprocess.SubprocessError:
-                print(f"{Colors.WARNING}⚠️  Could not get git status{Colors.ENDC}")
+        # Try to copy from existing budget-nodepad.html
+        existing_budget = self.garden_root / "budget-nodepad.html"
+        if existing_budget.exists():
+            shutil.copy2(existing_budget, budget_html)
+            print(f"  ✓ budget-nodepad.html (copied from existing)")
         else:
-            print(f"{Colors.WARNING}⚠️  No git repository found{Colors.ENDC}")
+            # Create placeholder
+            budget_html.write_text('''<!DOCTYPE html>
+<html><head><title>Budget NodePad</title></head>
+<body><h1>Budget NodePad - Ready for Implementation</h1></body></html>''')
+            print(f"  ✓ budget-nodepad.html (placeholder)")
+
+    def _create_sailing_tools(self, project_dir):
+        """Create sailing-specific tools"""
+        sailing_html = project_dir / "sailing-tools.html"
+        sailing_html.write_text('''<!DOCTYPE html>
+<html><head><title>Sailing Tools</title></head>
+<body><h1>⛵ Sailing Tools - Ready for Implementation</h1></body></html>''')
+        print(f"  ✓ sailing-tools.html (placeholder)")
+
+    def _create_planning_nodepad(self, project_dir):
+        """Create planning-specific NodePad"""
+        planning_html = project_dir / "planning-nodepad.html"
+        planning_html.write_text('''<!DOCTYPE html>
+<html><head><title>Planning NodePad</title></head>
+<body><h1>📋 Planning NodePad - Ready for Implementation</h1></body></html>''')
+        print(f"  ✓ planning-nodepad.html (placeholder)")
+
+    def _create_pure_nodepad(self, project_dir):
+        """Create pure NodePad implementation"""
+        nodepad_html = project_dir / "nodepad.html"
+        
+        # Copy from toolshed if available
+        toolshed_nodepad = self.garden_root / "toolshed" / "nodepad-4.0.0.html"
+        if toolshed_nodepad.exists():
+            shutil.copy2(toolshed_nodepad, nodepad_html)
+            print(f"  ✓ nodepad.html (copied from toolshed)")
+        else:
+            nodepad_html.write_text('''<!DOCTYPE html>
+<html><head><title>NodePad</title></head>
+<body><h1>NodePad - Ready for Implementation</h1></body></html>''')
+            print(f"  ✓ nodepad.html (placeholder)")
+
+    def _init_project_git(self, project_dir, project_name):
+        """Initialize git repository for the project"""
+        try:
+            # Initialize git repo
+            subprocess.run(['git', 'init'], cwd=project_dir, check=True, capture_output=True)
             
-            if input(f"{Colors.OKCYAN}Initialize git repository? (y/N): {Colors.ENDC}").lower() == 'y':
-                try:
-                    subprocess.run(["git", "init"], check=True)
-                    print(f"{Colors.OKGREEN}✅ Git repository initialized{Colors.ENDC}")
-                    
-                    # Create initial .gitignore
-                    gitignore_content = """# Dependencies
-node_modules/
-*.log
+            # Create initial commit
+            subprocess.run(['git', 'add', '.'], cwd=project_dir, check=True, capture_output=True)
+            subprocess.run(['git', 'commit', '-m', f'Initial commit: {project_name} forked from GARDEN'], 
+                         cwd=project_dir, check=True, capture_output=True)
+            
+            print(f"  ✓ Git repository initialized")
+            
+        except subprocess.CalledProcessError as e:
+            print(f"  ⚠️ Git initialization failed: {e}")
 
-# Build outputs
-dist/
-build/
-out/
-
-# Environment files
-.env
-.env.local
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Deployment
-.vercel/
-.netlify/
-"""
-                    (self.root_dir / ".gitignore").write_text(gitignore_content)
-                    print(f"{Colors.OKGREEN}✅ .gitignore created{Colors.ENDC}")
-                    
-                except subprocess.SubprocessError as e:
-                    print(f"{Colors.FAIL}❌ Failed to initialize git: {e}{Colors.ENDC}")
-
-    def create_web_uploader(self):
-        """Create the web uploader interface"""
-        print(f"{Colors.HEADER}🌐 CREATE WEB UPLOADER INTERFACE{Colors.ENDC}")
-        print(f"{Colors.BOLD}─────────────────────────────────────{Colors.ENDC}")
-        print(f"{Colors.WARNING}⚠️  Web uploader will be created next...{Colors.ENDC}")
-        print(f"{Colors.OKBLUE}This will create a drag & drop interface for project uploads{Colors.ENDC}")
-
-    def system_status(self):
-        """Show system status and configuration"""
-        print(f"{Colors.HEADER}📊 SYSTEM STATUS{Colors.ENDC}")
-        print(f"{Colors.BOLD}─────────────────────────────────────{Colors.ENDC}")
-        
-        print(f"{Colors.OKGREEN}📁 Directory Structure:{Colors.ENDC}")
-        print(f"  Root: {self.root_dir}")
-        print(f"  Pending: {self.pending_dir} ({'✅' if self.pending_dir.exists() else '❌'})")
-        print(f"  Deployed: {self.deployed_dir} ({'✅' if self.deployed_dir.exists() else '❌'})")
-        print(f"  Templates: {self.templates_dir} ({'✅' if self.templates_dir.exists() else '❌'})")
-        
-        # Count projects
-        pending_count = len([d for d in self.pending_dir.iterdir() if d.is_dir()]) if self.pending_dir.exists() else 0
-        deployed_count = len([d for d in self.deployed_dir.iterdir() if d.is_dir()]) if self.deployed_dir.exists() else 0
-        
-        print(f"\n{Colors.OKGREEN}📊 Project Counts:{Colors.ENDC}")
-        print(f"  Pending projects: {pending_count}")
-        print(f"  Deployed projects: {deployed_count}")
-        
-        print(f"\n{Colors.OKGREEN}🐍 Python Environment:{Colors.ENDC}")
-        print(f"  Python version: {sys.version}")
-        print(f"  Python executable: {sys.executable}")
-        
-        print(f"\n{Colors.OKGREEN}📋 Available Commands:{Colors.ENDC}")
-        print(f"  Git: {'✅' if shutil.which('git') else '❌'}")
-        print(f"  Node: {'✅' if shutil.which('node') else '❌'}")
-        print(f"  NPM: {'✅' if shutil.which('npm') else '❌'}")
-        print(f"  Vercel CLI: {'✅' if shutil.which('vercel') else '❌'}")
-
-    def export_project_list(self):
-        """Export project list to JSON"""
-        print(f"{Colors.HEADER}📤 EXPORT PROJECT LIST{Colors.ENDC}")
-        print(f"{Colors.BOLD}─────────────────────────────────────{Colors.ENDC}")
-        
-        projects_data = {
-            "exported_at": datetime.now().isoformat(),
-            "system_info": {
-                "root_directory": str(self.root_dir),
-                "python_version": sys.version,
-                "platform": sys.platform
-            },
-            "pending_projects": [],
-            "deployed_projects": []
+    def _create_project_metadata(self, project_dir, project_name, template_key):
+        """Create project metadata file"""
+        metadata = {
+            'name': project_name,
+            'template': template_key,
+            'created': datetime.now().isoformat(),
+            'garden_version': '2.0',
+            'forked_from': 'scottloeb/garden',
+            'core_files_synced': datetime.now().isoformat(),
+            'deploy_status': 'not_deployed',
+            'vercel_url': None
         }
         
-        # Collect pending projects
-        if self.pending_dir.exists():
-            for project_dir in self.pending_dir.iterdir():
-                if project_dir.is_dir():
-                    files = [f.name for f in project_dir.iterdir()]
-                    projects_data["pending_projects"].append({
-                        "name": project_dir.name,
-                        "path": str(project_dir),
-                        "files": files,
-                        "file_count": len(files)
-                    })
-        
-        # Collect deployed projects
-        if self.deployed_dir.exists():
-            for project_dir in self.deployed_dir.iterdir():
-                if project_dir.is_dir():
-                    files = [f.name for f in project_dir.iterdir()]
-                    projects_data["deployed_projects"].append({
-                        "name": project_dir.name,
-                        "path": str(project_dir),
-                        "files": files,
-                        "file_count": len(files)
-                    })
-        
-        # Save export
-        export_file = self.root_dir / f"garden-projects-export-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
-        export_file.write_text(json.dumps(projects_data, indent=2))
-        
-        print(f"{Colors.OKGREEN}✅ Project list exported to: {export_file}{Colors.ENDC}")
-        print(f"{Colors.OKBLUE}📊 Summary:{Colors.ENDC}")
-        print(f"  Pending projects: {len(projects_data['pending_projects'])}")
-        print(f"  Deployed projects: {len(projects_data['deployed_projects'])}")
+        metadata_file = project_dir / ".garden-project.json"
+        with open(metadata_file, 'w') as f:
+            json.dump(metadata, f, indent=2)
+            
+        print(f"  ✓ Project metadata created")
 
-    def backup_projects(self):
-        """Create backup of all projects"""
-        print(f"{Colors.HEADER}💾 BACKUP PROJECTS{Colors.ENDC}")
-        print(f"{Colors.BOLD}─────────────────────────────────────{Colors.ENDC}")
+    def sync_core_files(self):
+        """Sync core files from main garden to all projects"""
+        print(f"\n{Colors.HEADER}🔄 Sync Core Files from Main Garden{Colors.ENDC}")
+        print("This will update core GARDEN files in all forked projects")
         
-        timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
-        backup_dir = self.root_dir / f"garden-backup-{timestamp}"
+        confirm = input("Continue? (y/N): ").strip().lower()
+        if confirm != 'y':
+            print("Cancelled.")
+            return
+            
+        # Find all project directories
+        project_dirs = [d for d in self.garden_root.iterdir() 
+                       if d.is_dir() and (d / ".garden-project.json").exists()]
         
+        if not project_dirs:
+            print(f"{Colors.WARNING}⚠️ No forked projects found.{Colors.ENDC}")
+            return
+            
+        print(f"Found {len(project_dirs)} forked projects:")
+        for project_dir in project_dirs:
+            print(f"  📁 {project_dir.name}")
+            
+        for project_dir in project_dirs:
+            print(f"\n{Colors.OKCYAN}Updating {project_dir.name}...{Colors.ENDC}")
+            self._fork_core_files(project_dir)
+            
+            # Update metadata
+            metadata_file = project_dir / ".garden-project.json"
+            if metadata_file.exists():
+                with open(metadata_file, 'r') as f:
+                    metadata = json.load(f)
+                metadata['core_files_synced'] = datetime.now().isoformat()
+                with open(metadata_file, 'w') as f:
+                    json.dump(metadata, f, indent=2)
+                    
+        print(f"\n{Colors.OKGREEN}✅ Core files synced to all projects!{Colors.ENDC}")
+
+    def create_pull_request_helper(self):
+        """Help create pull request for core updates"""
+        print(f"\n{Colors.HEADER}📋 Create Pull Request for Core Updates{Colors.ENDC}")
+        print("This will help you contribute improvements back to main GARDEN")
+        
+        # List projects with potential updates
+        project_dirs = [d for d in self.garden_root.iterdir() 
+                       if d.is_dir() and (d / ".garden-project.json").exists()]
+        
+        if not project_dirs:
+            print(f"{Colors.WARNING}⚠️ No forked projects found.{Colors.ENDC}")
+            return
+            
+        print(f"\nSelect project with updates to contribute:")
+        for i, project_dir in enumerate(project_dirs):
+            print(f"{i + 1}. {project_dir.name}")
+            
         try:
-            backup_dir.mkdir()
+            choice = int(input("Select project (number): ")) - 1
+            if choice < 0 or choice >= len(project_dirs):
+                raise ValueError()
+            project_dir = project_dirs[choice]
+        except (ValueError, IndexError):
+            print(f"{Colors.FAIL}❌ Invalid selection.{Colors.ENDC}")
+            return
             
-            # Copy pending projects
-            if self.pending_dir.exists():
-                shutil.copytree(self.pending_dir, backup_dir / "pending-updates")
-                print(f"{Colors.OKGREEN}✅ Pending projects backed up{Colors.ENDC}")
+        print(f"\n{Colors.OKCYAN}Analyzing {project_dir.name} for core file changes...{Colors.ENDC}")
+        
+        # Check for modified core files
+        modified_files = []
+        for core_file in self.core_files:
+            project_file = project_dir / core_file
+            main_file = self.garden_root / core_file
             
-            # Copy deployed projects
-            if self.deployed_dir.exists():
-                shutil.copytree(self.deployed_dir, backup_dir / "deployed-projects")
-                print(f"{Colors.OKGREEN}✅ Deployed projects backed up{Colors.ENDC}")
+            if project_file.exists() and main_file.exists():
+                # Simple file comparison (could be enhanced with git diff)
+                project_content = project_file.read_text()
+                main_content = main_file.read_text()
+                
+                if project_content != main_content:
+                    modified_files.append(core_file)
+                    
+        if not modified_files:
+            print(f"{Colors.WARNING}⚠️ No core file changes detected.{Colors.ENDC}")
+            return
             
-            # Copy templates if they exist
-            if self.templates_dir.exists() and any(self.templates_dir.iterdir()):
-                shutil.copytree(self.templates_dir, backup_dir / "project-templates")
-                print(f"{Colors.OKGREEN}✅ Templates backed up{Colors.ENDC}")
+        print(f"\n{Colors.OKGREEN}Found {len(modified_files)} modified core files:{Colors.ENDC}")
+        for file in modified_files:
+            print(f"  📝 {file}")
             
-            # Create backup manifest
-            manifest = {
-                "backup_created": datetime.now().isoformat(),
-                "source_directory": str(self.root_dir),
-                "backup_directory": str(backup_dir),
-                "contents": [
-                    d.name for d in backup_dir.iterdir()
-                ]
-            }
-            
-            (backup_dir / "backup-manifest.json").write_text(json.dumps(manifest, indent=2))
-            
-            print(f"\n{Colors.OKGREEN}✅ Backup completed successfully!{Colors.ENDC}")
-            print(f"{Colors.OKBLUE}📁 Backup location: {backup_dir}{Colors.ENDC}")
-            
-        except Exception as e:
-            print(f"{Colors.FAIL}❌ Backup failed: {e}{Colors.ENDC}")
+        print(f"\n{Colors.OKCYAN}Next steps:{Colors.ENDC}")
+        print("1. Review changes in each file")
+        print("2. Create feature branch in main GARDEN repo")
+        print("3. Copy updated files to main repo")
+        print("4. Commit changes with descriptive message")
+        print("5. Push branch and create pull request")
+        print(f"\n{Colors.WARNING}💡 Consider creating a script to automate this process!{Colors.ENDC}")
 
     def run(self):
         """Main menu loop"""
+        self.print_header()
+        
         while True:
+            self.print_menu()
+            choice = input(f"\n{Colors.OKBLUE}Enter your choice: {Colors.ENDC}").strip().lower()
+            
             try:
-                self.show_menu()
-                choice = input(f"{Colors.OKCYAN}Enter your choice (0-9): {Colors.ENDC}").strip()
-                
-                if choice == "0":
-                    print(f"\n{Colors.OKGREEN}👋 Thank you for using G.A.R.D.E.N. Deploy Manager!{Colors.ENDC}")
-                    print(f"{Colors.OKBLUE}🌱 Happy coding!{Colors.ENDC}")
+                if choice == 'q' or choice == 'quit':
+                    print(f"\n{Colors.OKGREEN}🌱 Happy gardening! See you next time.{Colors.ENDC}")
                     break
-                elif choice == "1":
-                    self.list_pending_projects()
-                elif choice == "2":
-                    self.create_new_project()
-                elif choice == "3":
-                    self.view_project_details()
-                elif choice == "4":
-                    self.deploy_to_vercel()
-                elif choice == "5":
-                    self.initialize_git()
-                elif choice == "6":
-                    self.create_web_uploader()
-                elif choice == "7":
-                    self.system_status()
-                elif choice == "8":
-                    self.export_project_list()
-                elif choice == "9":
-                    self.backup_projects()
+                elif choice == '0':
+                    self.fork_garden_project()
+                elif choice == '1':
+                    print("\n📂 List Existing Projects - TODO: Implement")
+                elif choice == '2':
+                    print("\n🚀 Deploy Project to Vercel - TODO: Implement")
+                elif choice == '3':
+                    print("\n📊 Project Status Dashboard - TODO: Implement")
+                elif choice == '4':
+                    print("\n💾 Backup All Projects - TODO: Implement")
+                elif choice == '5':
+                    print("\n📤 Export Project - TODO: Implement")
+                elif choice == '6':
+                    self.sync_core_files()
+                elif choice == '7':
+                    self.create_pull_request_helper()
+                elif choice == '8':
+                    print("\n🧹 Clean Up Temporary Files - TODO: Implement")
+                elif choice == '9':
+                    print("\n❓ Help & Documentation - TODO: Implement")
+                elif choice == '10':
+                    print("\n🔧 System Status & Tool Check - TODO: Implement")
                 else:
-                    print(f"{Colors.WARNING}⚠️  Invalid choice. Please enter 0-9.{Colors.ENDC}")
-                
-                # Wait for user to continue (except for exit)
-                if choice != "0":
-                    input(f"\n{Colors.OKCYAN}Press Enter to continue...{Colors.ENDC}")
-                    print()  # Add spacing between operations
+                    print(f"{Colors.FAIL}❌ Invalid choice. Please try again.{Colors.ENDC}")
                     
             except KeyboardInterrupt:
-                print(f"\n\n{Colors.WARNING}⚠️  Operation cancelled by user.{Colors.ENDC}")
-                print(f"{Colors.OKGREEN}👋 Goodbye!{Colors.ENDC}")
+                print(f"\n\n{Colors.WARNING}⚠️ Interrupted by user.{Colors.ENDC}")
                 break
             except Exception as e:
-                print(f"{Colors.FAIL}❌ An error occurred: {e}{Colors.ENDC}")
-                input(f"{Colors.OKCYAN}Press Enter to continue...{Colors.ENDC}")
-
-
-def main():
-    """Entry point for the application"""
-    try:
-        # Check if we're in the right directory
-        current_dir = Path.cwd()
-        if not (current_dir.name == "garden-projects" or 
-                any(d.name == "pending-updates" for d in current_dir.iterdir() if d.is_dir())):
-            print(f"{Colors.WARNING}⚠️  Warning: You may not be in the garden-projects directory.{Colors.ENDC}")
-            print(f"{Colors.OKBLUE}Current directory: {current_dir}{Colors.ENDC}")
-            
-            response = input(f"{Colors.OKCYAN}Continue anyway? (y/N): {Colors.ENDC}")
-            if response.lower() != 'y':
-                print(f"{Colors.OKGREEN}👋 Please navigate to your garden-projects directory and try again.{Colors.ENDC}")
-                return
-        
-        # Initialize and run the deploy manager
-        manager = GARDENDeployManager()
-        manager.run()
-        
-    except Exception as e:
-        print(f"{Colors.FAIL}❌ Fatal error: {e}{Colors.ENDC}")
-        return 1
-    
-    return 0
-
+                print(f"\n{Colors.FAIL}❌ Error: {str(e)}{Colors.ENDC}")
 
 if __name__ == "__main__":
-    exit(main())
+    manager = GardenForkManager()
+    manager.run()
