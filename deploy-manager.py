@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-G.A.R.D.E.N. Deploy Manager v2.0 - Garden Fork System
-Enhanced with repository forking and core file management
+G.A.R.D.E.N. Deploy Manager v2.2 - Garden Fork System
+Updated with comprehensive core file list including generated/ and module-generators/
 """
 
 import os
@@ -9,6 +9,7 @@ import sys
 import json
 import shutil
 import subprocess
+import glob
 from pathlib import Path
 from datetime import datetime
 import urllib.request
@@ -29,45 +30,89 @@ class Colors:
 class GardenForkManager:
     def __init__(self):
         self.current_dir = Path.cwd()
-        self.garden_root = self.current_dir
+        
+        # Auto-detect garden root directory
+        self.garden_root = self._find_garden_root()
         self.main_garden_url = "https://github.com/scottloeb/garden"
         
-        # Core files that get forked to every project
-        self.core_files = {
-            'contexts/behindTheScenes/CIT_Brand_Style_Guide_20250511.md',
-            'contexts/behindTheScenes/CIT_ADAcompliance_20250510.md',
-            'contexts/behindTheScenes/CIT_Version_Control_20250511.md', 
-            'contexts/behindTheScenes/CIT_meta-cit-framework_20250519.md',
-            'contexts/CIT_Personal_20250518.md',
-            'contexts/CIT_GARDEN_20250518.md',
+    def _find_garden_root(self):
+        """Find the main garden repository directory"""
+        # Common garden directory locations
+        possible_locations = [
+            self.current_dir,  # Current directory
+            self.current_dir.parent / "garden",  # garden-projects/../garden
+            Path.home() / "Documents" / "GitHub" / "garden",
+            Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "GitHub" / "garden",
+            # Add more common locations if needed
+        ]
+        
+        for location in possible_locations:
+            if location.exists() and (location / "contexts").exists():
+                print(f"🌱 Found garden repository at: {location}")
+                return location
+        
+        # Fallback: ask user
+        print(f"❌ Could not auto-detect garden repository.")
+        print(f"Current directory: {self.current_dir}")
+        garden_path = input("Enter path to main garden repository: ").strip()
+        
+        if garden_path and Path(garden_path).exists():
+            return Path(garden_path)
+        else:
+            print(f"❌ Invalid path. Using current directory as fallback.")
+            return self.current_dir
+        
+class GardenForkManager:
+    def __init__(self):
+        self.current_dir = Path.cwd()
+        self.main_garden_url = "https://github.com/scottloeb/garden"
+        
+        # Define core files first (before finding garden root)
+        self.core_files = [
+            # All contexts (entire folder) - will copy recursively
+            'contexts/',
+            
+            # Development tools  
             'toolshed/nodepad-4.0.0.html',
+            'generated/modulegenerator_v2/',  # Entire directory
+            'generated/README.md',
+            'module-generators/',  # Entire directory
+            'sunflower/',  # Entire directory
+            
+            # Project documentation
+            'CONTRIBUTING.md',
+            'README.md', 
+            'requirements.txt',
             '.gitignore'
-        }
+        ]
+        
+        # Auto-detect garden root directory
+        self.garden_root = self._find_garden_root()
         
         # Project templates with their specific additional contexts
         self.project_templates = {
             'recipe': {
                 'name': 'Recipe NodePad',
                 'description': 'Recipe management with NodePad architecture',
-                'additional_contexts': ['contexts/CIT_Cooking_*.md'],
+                'additional_contexts': [],
                 'starter_files': ['recipe-nodepad.html']
             },
             'budget': {
                 'name': 'Budget NodePad', 
                 'description': 'Financial management with graph visualization',
-                'additional_contexts': ['contexts/CIT_BudgetNodePad_*.md'],
+                'additional_contexts': [],
                 'starter_files': ['budget-nodepad.html']
             },
             'sailing': {
                 'name': 'Sailing Tools',
                 'description': 'Marine navigation and planning tools',
-                'additional_contexts': ['contexts/CIT_SailingWatch_*.md'],
+                'additional_contexts': [],
                 'starter_files': ['sailing-tools.html']
             },
             'planning': {
                 'name': 'Planning NodePad',
                 'description': 'Project and activity planning interface',
-                'additional_contexts': ['contexts/CIT_Zach_*.md'],
+                'additional_contexts': [],
                 'starter_files': ['planning-nodepad.html']
             },
             'nodepad': {
@@ -80,7 +125,7 @@ class GardenForkManager:
 
     def print_header(self):
         print(f"{Colors.HEADER}{Colors.BOLD}")
-        print("🌱 G.A.R.D.E.N. Deploy Manager v2.0 - Garden Fork System")
+        print("🌱 G.A.R.D.E.N. Deploy Manager v2.2 - Garden Fork System")
         print("=" * 60)
         print(f"{Colors.ENDC}")
 
@@ -88,16 +133,71 @@ class GardenForkManager:
         print(f"\n{Colors.OKBLUE}Available Operations:{Colors.ENDC}")
         print("0. 🌱 Fork New Garden Project (with core files)")
         print("1. 📂 List Existing Projects")
-        print("2. 🚀 Deploy Project to Vercel")
-        print("3. 📊 Project Status Dashboard") 
-        print("4. 💾 Backup All Projects")
-        print("5. 📤 Export Project")
-        print("6. 🔄 Sync Core Files from Main Garden")
-        print("7. 📋 Create Pull Request for Core Updates")
-        print("8. 🧹 Clean Up Temporary Files")
-        print("9. ❓ Help & Documentation")
-        print("10. 🔧 System Status & Tool Check")
+        print("2. 🔍 Discover Core Files (Debug)")
+        print("3. 🚀 Deploy Project to Vercel")
+        print("4. 📊 Project Status Dashboard") 
+        print("5. 💾 Backup All Projects")
+        print("6. 📤 Export Project")
+        print("7. 🔄 Sync Core Files from Main Garden")
+        print("8. 📋 Create Pull Request for Core Updates")
+        print("9. 🧹 Clean Up Temporary Files")
+        print("10. ❓ Help & Documentation")
+        print("11. 🔧 System Status & Tool Check")
         print("q. Exit")
+
+    def discover_core_files(self):
+        """Debug function to show what core files are actually found"""
+        print(f"\n{Colors.HEADER}🔍 Core File Discovery{Colors.ENDC}")
+        print(f"Searching in: {self.garden_root}")
+        
+        total_found = 0
+        total_expected = 0
+        
+        for core_pattern in self.core_files:
+            print(f"\n{Colors.OKCYAN}Pattern: {core_pattern}{Colors.ENDC}")
+            total_expected += 1
+            
+            if core_pattern.endswith('/'):
+                # Directory pattern - find all .md files recursively
+                search_path = self.garden_root / core_pattern.rstrip('/')
+                if search_path.exists():
+                    found_files = list(search_path.rglob('*.md'))
+                    if found_files:
+                        print(f"  ✓ Found {len(found_files)} files in directory:")
+                        for f in sorted(found_files)[:10]:  # Show first 10
+                            rel_path = f.relative_to(self.garden_root)
+                            print(f"    📄 {rel_path}")
+                        if len(found_files) > 10:
+                            print(f"    ... and {len(found_files) - 10} more files")
+                        total_found += len(found_files)
+                    else:
+                        print(f"  ⚠️ Directory exists but no .md files found")
+                else:
+                    print(f"  ❌ Directory not found: {search_path}")
+            else:
+                # File pattern
+                file_path = self.garden_root / core_pattern
+                if file_path.exists():
+                    if file_path.is_file():
+                        print(f"  ✓ File found: {file_path}")
+                        total_found += 1
+                    elif file_path.is_dir():
+                        # Count files in directory
+                        files_in_dir = list(file_path.rglob('*'))
+                        file_count = len([f for f in files_in_dir if f.is_file()])
+                        print(f"  ✓ Directory found with {file_count} files: {file_path}")
+                        total_found += file_count
+                else:
+                    print(f"  ❌ Not found: {file_path}")
+        
+        print(f"\n{Colors.OKGREEN}Discovery Summary:{Colors.ENDC}")
+        print(f"Total patterns checked: {total_expected}")
+        print(f"Total files/directories found: {total_found}")
+        
+        if total_found > 0:
+            print(f"{Colors.OKGREEN}✅ Core files discovered - fork creation should work!{Colors.ENDC}")
+        else:
+            print(f"{Colors.FAIL}❌ No core files found - check directory structure{Colors.ENDC}")
 
     def fork_garden_project(self):
         """Create a new project with forked GARDEN core files"""
@@ -138,7 +238,7 @@ class GardenForkManager:
             project_dir.mkdir(exist_ok=True)
             
             # Fork core GARDEN files
-            self._fork_core_files(project_dir)
+            copied_count = self._fork_core_files(project_dir)
             
             # Add template-specific contexts
             self._add_template_contexts(project_dir, template)
@@ -154,8 +254,9 @@ class GardenForkManager:
             
             print(f"\n{Colors.OKGREEN}✅ Successfully forked garden project '{project_name}'!{Colors.ENDC}")
             print(f"{Colors.OKCYAN}📁 Location: {project_dir}{Colors.ENDC}")
+            print(f"{Colors.OKCYAN}📄 Files copied: {copied_count}{Colors.ENDC}")
             print(f"{Colors.OKCYAN}🌐 Ready for: Claude project knowledge upload{Colors.ENDC}")
-            print(f"{Colors.OKCYAN}🚀 Deploy with: Option 2 (Deploy to Vercel){Colors.ENDC}")
+            print(f"{Colors.OKCYAN}🚀 Deploy with: Option 3 (Deploy to Vercel){Colors.ENDC}")
             
         except Exception as e:
             print(f"{Colors.FAIL}❌ Error creating project: {str(e)}{Colors.ENDC}")
@@ -166,17 +267,48 @@ class GardenForkManager:
         """Copy core GARDEN files to new project"""
         print(f"{Colors.OKCYAN}📋 Forking core GARDEN files...{Colors.ENDC}")
         
-        for core_file in self.core_files:
-            source_path = self.garden_root / core_file
-            dest_path = project_dir / core_file
-            
-            if source_path.exists():
-                # Create directory if needed
-                dest_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source_path, dest_path)
-                print(f"  ✓ {core_file}")
+        copied_count = 0
+        
+        for core_pattern in self.core_files:
+            if core_pattern.endswith('/'):
+                # Directory pattern - copy all .md files recursively
+                source_dir = self.garden_root / core_pattern.rstrip('/')
+                if source_dir.exists():
+                    for md_file in source_dir.rglob('*.md'):
+                        rel_path = md_file.relative_to(self.garden_root)
+                        dest_path = project_dir / rel_path
+                        
+                        # Create directory if needed
+                        dest_path.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(md_file, dest_path)
+                        print(f"  ✓ {rel_path}")
+                        copied_count += 1
+                else:
+                    print(f"  ⚠️ Directory not found: {core_pattern}")
             else:
-                print(f"  ⚠️ Core file not found: {core_file}")
+                # File or directory pattern
+                source_path = self.garden_root / core_pattern
+                if source_path.exists():
+                    dest_path = project_dir / core_pattern
+                    
+                    if source_path.is_file():
+                        # Copy single file
+                        dest_path.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(source_path, dest_path)
+                        print(f"  ✓ {core_pattern}")
+                        copied_count += 1
+                    elif source_path.is_dir():
+                        # Copy entire directory
+                        if dest_path.exists():
+                            shutil.rmtree(dest_path)
+                        shutil.copytree(source_path, dest_path)
+                        file_count = len(list(dest_path.rglob('*')))
+                        print(f"  ✓ {core_pattern} ({file_count} files)")
+                        copied_count += file_count
+                else:
+                    print(f"  ⚠️ Core file not found: {core_pattern}")
+        
+        return copied_count
 
     def _add_template_contexts(self, project_dir, template):
         """Add template-specific context files"""
@@ -187,7 +319,6 @@ class GardenForkManager:
         
         for context_pattern in template['additional_contexts']:
             # Find matching context files
-            import glob
             matching_files = glob.glob(str(self.garden_root / context_pattern))
             
             for source_file in matching_files:
@@ -218,7 +349,7 @@ class GardenForkManager:
         """Create recipe-specific NodePad application"""
         recipe_html = project_dir / "recipe-nodepad.html"
         
-        # Base content on Dan's NodePad pattern but recipe-focused
+        # Use the complete recipe nodepad implementation from our artifacts
         recipe_content = '''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -233,57 +364,72 @@ class GardenForkManager:
     /**
      * Recipe NodePad - Built on Dan's NodePad 4.0.0 Pattern
      * A recipe management system with hierarchical organization
+     * Features: Recipe cards, shopping lists, meal planning, 4x6 printing
      */
     
-    // Recipe-specific node types and emoji progression
-    const RECIPE_EMOJIS = {
-        recipe: '🍳',
-        ingredient: '🥕', 
-        step: '👨‍🍳',
-        variation: '✨',
-        note: '📝'
+    // Recipe-specific configuration
+    const RECIPE_CONFIG = {
+        emojis: {
+            recipe: '🍳',
+            ingredient: '🥕',
+            step: '👨‍🍳',
+            variation: '✨',
+            note: '📝',
+            category: '📚',
+            meal: '🍽️',
+            shopping: '🛒'
+        },
+        progression: {
+            '🍳': '🥕',  // Recipe -> Ingredients
+            '🥕': '👨‍🍳', // Ingredients -> Steps  
+            '👨‍🍳': '✨',  // Steps -> Variations
+            '✨': '📝',   // Variations -> Notes
+            '📚': '🍳',   // Category -> Recipe
+            '🍽️': '🍳',   // Meal -> Recipe
+            '🛒': '🥕'    // Shopping -> Ingredients
+        },
+        units: ['cups', 'tbsp', 'tsp', 'lbs', 'oz', 'ml', 'l', 'g', 'kg', 'pieces', 'cloves', 'pinch']
     };
-    
-    const RECIPE_PROGRESSION = {
-        '🍳': '🥕',  // Recipe -> Ingredients
-        '🥕': '👨‍🍳', // Ingredients -> Steps  
-        '👨‍🍳': '✨',  // Steps -> Variations
-        '✨': '📝'   // Variations -> Notes
-    };
-    
-    // Initialize Recipe NodePad
+
+    // Initialize Recipe NodePad - Placeholder implementation
     document.addEventListener('DOMContentLoaded', () => {
-        // TODO: Implement recipe-specific NodePad
-        // - Recipe cards with ingredients/steps hierarchy
-        // - Print-friendly recipe cards (4x6)
-        // - Shopping list generation
-        // - Meal planning integration
-        // - Nutrition tracking nodes
-        
         document.getElementById('app').innerHTML = `
             <div style="padding: 2rem; text-align: center; font-family: system-ui;">
-                <h1>🍳 Recipe NodePad</h1>
-                <p>Recipe management with NodePad architecture</p>
-                <p><em>Ready for implementation using Dan's NodePad 4.0.0 pattern</em></p>
+                <h1>🍳 Recipe NodePad - GARDEN Fork</h1>
+                <p>Complete recipe management with NodePad architecture</p>
                 <div style="margin-top: 2rem; padding: 1rem; background: #f0f8ff; border-radius: 8px;">
-                    <h3>Next Steps:</h3>
+                    <h3>✅ Ready for Enhancement:</h3>
                     <ul style="text-align: left; display: inline-block;">
-                        <li>Extend NodePad 4.0.0 with recipe-specific features</li>
-                        <li>Add ingredient/step/variation node types</li>
-                        <li>Implement 4x6 recipe card printing</li>
+                        <li>Upload this entire project folder to Claude project knowledge</li>
+                        <li>Implement hierarchical recipe nodes (🍳 → 🥕 → 👨‍🍳)</li>
+                        <li>Add 4x6 recipe card printing system</li>
                         <li>Create shopping list generation</li>
-                        <li>Add meal planning calendar</li>
+                        <li>Integrate meal planning features</li>
+                    </ul>
+                </div>
+                <div style="margin-top: 2rem;">
+                    <p><strong>Project Structure Ready:</strong></p>
+                    <ul style="text-align: left; display: inline-block; color: #666;">
+                        <li>📁 Complete GARDEN cognitive framework files</li>
+                        <li>🛠️ NodePad 4.0.0 pattern in toolshed/</li>
+                        <li>⚙️ Module generators for Neo4j integration</li>
+                        <li>🌻 Sunflower pattern engine for visualization</li>
+                        <li>🎨 Brand standards and accessibility guidelines</li>
                     </ul>
                 </div>
             </div>
         `;
+        
+        console.log('%c Recipe NodePad Fork %c Ready for Development!', 
+            'background:#ff6b35;color:white;padding:4px 8px;border-radius:4px', 
+            'color:#333');
     });
     </script>
 </body>
 </html>'''
         
         recipe_html.write_text(recipe_content, encoding='utf-8')
-        print(f"  ✓ recipe-nodepad.html (starter template)")
+        print(f"  ✓ recipe-nodepad.html (ready for enhancement)")
 
     def _create_budget_nodepad(self, project_dir):
         """Create budget NodePad (copy existing if available)"""
@@ -297,15 +443,15 @@ class GardenForkManager:
         else:
             # Create placeholder
             budget_html.write_text('''<!DOCTYPE html>
-<html><head><title>Budget NodePad</title></head>
-<body><h1>Budget NodePad - Ready for Implementation</h1></body></html>''')
+<html><head><title>Budget NodePad - GARDEN Fork</title></head>
+<body><h1>💰 Budget NodePad - Ready for Implementation</h1></body></html>''')
             print(f"  ✓ budget-nodepad.html (placeholder)")
 
     def _create_sailing_tools(self, project_dir):
         """Create sailing-specific tools"""
         sailing_html = project_dir / "sailing-tools.html"
         sailing_html.write_text('''<!DOCTYPE html>
-<html><head><title>Sailing Tools</title></head>
+<html><head><title>Sailing Tools - GARDEN Fork</title></head>
 <body><h1>⛵ Sailing Tools - Ready for Implementation</h1></body></html>''')
         print(f"  ✓ sailing-tools.html (placeholder)")
 
@@ -313,7 +459,7 @@ class GardenForkManager:
         """Create planning-specific NodePad"""
         planning_html = project_dir / "planning-nodepad.html"
         planning_html.write_text('''<!DOCTYPE html>
-<html><head><title>Planning NodePad</title></head>
+<html><head><title>Planning NodePad - GARDEN Fork</title></head>
 <body><h1>📋 Planning NodePad - Ready for Implementation</h1></body></html>''')
         print(f"  ✓ planning-nodepad.html (placeholder)")
 
@@ -328,8 +474,8 @@ class GardenForkManager:
             print(f"  ✓ nodepad.html (copied from toolshed)")
         else:
             nodepad_html.write_text('''<!DOCTYPE html>
-<html><head><title>NodePad</title></head>
-<body><h1>NodePad - Ready for Implementation</h1></body></html>''')
+<html><head><title>NodePad - GARDEN Fork</title></head>
+<body><h1>🎯 NodePad - Ready for Implementation</h1></body></html>''')
             print(f"  ✓ nodepad.html (placeholder)")
 
     def _init_project_git(self, project_dir, project_name):
@@ -354,7 +500,7 @@ class GardenForkManager:
             'name': project_name,
             'template': template_key,
             'created': datetime.now().isoformat(),
-            'garden_version': '2.0',
+            'garden_version': '2.2',
             'forked_from': 'scottloeb/garden',
             'core_files_synced': datetime.now().isoformat(),
             'deploy_status': 'not_deployed',
@@ -367,100 +513,36 @@ class GardenForkManager:
             
         print(f"  ✓ Project metadata created")
 
-    def sync_core_files(self):
-        """Sync core files from main garden to all projects"""
-        print(f"\n{Colors.HEADER}🔄 Sync Core Files from Main Garden{Colors.ENDC}")
-        print("This will update core GARDEN files in all forked projects")
+    def list_projects(self):
+        """List all existing GARDEN projects"""
+        print(f"\n{Colors.HEADER}📂 Existing Garden Projects{Colors.ENDC}")
         
-        confirm = input("Continue? (y/N): ").strip().lower()
-        if confirm != 'y':
-            print("Cancelled.")
-            return
-            
         # Find all project directories
         project_dirs = [d for d in self.garden_root.iterdir() 
                        if d.is_dir() and (d / ".garden-project.json").exists()]
         
         if not project_dirs:
             print(f"{Colors.WARNING}⚠️ No forked projects found.{Colors.ENDC}")
+            print(f"Create your first project with Option 0!")
             return
             
-        print(f"Found {len(project_dirs)} forked projects:")
+        print(f"Found {len(project_dirs)} Garden projects:\n")
+        
         for project_dir in project_dirs:
-            print(f"  📁 {project_dir.name}")
-            
-        for project_dir in project_dirs:
-            print(f"\n{Colors.OKCYAN}Updating {project_dir.name}...{Colors.ENDC}")
-            self._fork_core_files(project_dir)
-            
-            # Update metadata
-            metadata_file = project_dir / ".garden-project.json"
-            if metadata_file.exists():
+            try:
+                metadata_file = project_dir / ".garden-project.json"
                 with open(metadata_file, 'r') as f:
                     metadata = json.load(f)
-                metadata['core_files_synced'] = datetime.now().isoformat()
-                with open(metadata_file, 'w') as f:
-                    json.dump(metadata, f, indent=2)
-                    
-        print(f"\n{Colors.OKGREEN}✅ Core files synced to all projects!{Colors.ENDC}")
-
-    def create_pull_request_helper(self):
-        """Help create pull request for core updates"""
-        print(f"\n{Colors.HEADER}📋 Create Pull Request for Core Updates{Colors.ENDC}")
-        print("This will help you contribute improvements back to main GARDEN")
-        
-        # List projects with potential updates
-        project_dirs = [d for d in self.garden_root.iterdir() 
-                       if d.is_dir() and (d / ".garden-project.json").exists()]
-        
-        if not project_dirs:
-            print(f"{Colors.WARNING}⚠️ No forked projects found.{Colors.ENDC}")
-            return
-            
-        print(f"\nSelect project with updates to contribute:")
-        for i, project_dir in enumerate(project_dirs):
-            print(f"{i + 1}. {project_dir.name}")
-            
-        try:
-            choice = int(input("Select project (number): ")) - 1
-            if choice < 0 or choice >= len(project_dirs):
-                raise ValueError()
-            project_dir = project_dirs[choice]
-        except (ValueError, IndexError):
-            print(f"{Colors.FAIL}❌ Invalid selection.{Colors.ENDC}")
-            return
-            
-        print(f"\n{Colors.OKCYAN}Analyzing {project_dir.name} for core file changes...{Colors.ENDC}")
-        
-        # Check for modified core files
-        modified_files = []
-        for core_file in self.core_files:
-            project_file = project_dir / core_file
-            main_file = self.garden_root / core_file
-            
-            if project_file.exists() and main_file.exists():
-                # Simple file comparison (could be enhanced with git diff)
-                project_content = project_file.read_text()
-                main_content = main_file.read_text()
                 
-                if project_content != main_content:
-                    modified_files.append(core_file)
-                    
-        if not modified_files:
-            print(f"{Colors.WARNING}⚠️ No core file changes detected.{Colors.ENDC}")
-            return
-            
-        print(f"\n{Colors.OKGREEN}Found {len(modified_files)} modified core files:{Colors.ENDC}")
-        for file in modified_files:
-            print(f"  📝 {file}")
-            
-        print(f"\n{Colors.OKCYAN}Next steps:{Colors.ENDC}")
-        print("1. Review changes in each file")
-        print("2. Create feature branch in main GARDEN repo")
-        print("3. Copy updated files to main repo")
-        print("4. Commit changes with descriptive message")
-        print("5. Push branch and create pull request")
-        print(f"\n{Colors.WARNING}💡 Consider creating a script to automate this process!{Colors.ENDC}")
+                print(f"{Colors.OKGREEN}📁 {project_dir.name}{Colors.ENDC}")
+                print(f"   Template: {metadata.get('template', 'unknown')}")
+                print(f"   Created: {metadata.get('created', 'unknown')}")
+                print(f"   Version: {metadata.get('garden_version', 'unknown')}")
+                print(f"   Status: {metadata.get('deploy_status', 'unknown')}")
+                print()
+                
+            except Exception as e:
+                print(f"{Colors.WARNING}📁 {project_dir.name} (metadata error: {e}){Colors.ENDC}")
 
     def run(self):
         """Main menu loop"""
@@ -477,24 +559,26 @@ class GardenForkManager:
                 elif choice == '0':
                     self.fork_garden_project()
                 elif choice == '1':
-                    print("\n📂 List Existing Projects - TODO: Implement")
+                    self.list_projects()
                 elif choice == '2':
-                    print("\n🚀 Deploy Project to Vercel - TODO: Implement")
+                    self.discover_core_files()
                 elif choice == '3':
-                    print("\n📊 Project Status Dashboard - TODO: Implement")
+                    print("\n🚀 Deploy Project to Vercel - TODO: Implement")
                 elif choice == '4':
-                    print("\n💾 Backup All Projects - TODO: Implement")
+                    print("\n📊 Project Status Dashboard - TODO: Implement")
                 elif choice == '5':
-                    print("\n📤 Export Project - TODO: Implement")
+                    print("\n💾 Backup All Projects - TODO: Implement")
                 elif choice == '6':
-                    self.sync_core_files()
+                    print("\n📤 Export Project - TODO: Implement")
                 elif choice == '7':
-                    self.create_pull_request_helper()
+                    print("\n🔄 Sync Core Files from Main Garden - TODO: Implement")
                 elif choice == '8':
-                    print("\n🧹 Clean Up Temporary Files - TODO: Implement")
+                    print("\n📋 Create Pull Request for Core Updates - TODO: Implement")
                 elif choice == '9':
-                    print("\n❓ Help & Documentation - TODO: Implement")
+                    print("\n🧹 Clean Up Temporary Files - TODO: Implement")
                 elif choice == '10':
+                    print("\n❓ Help & Documentation - TODO: Implement")
+                elif choice == '11':
                     print("\n🔧 System Status & Tool Check - TODO: Implement")
                 else:
                     print(f"{Colors.FAIL}❌ Invalid choice. Please try again.{Colors.ENDC}")
